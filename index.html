@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ขอวันลา</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600&family=Prompt:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF3F2;--surface:#fff;--ink:#14262C;--muted:#5B7077;--line:#D5DFDD;
+  --brand:#0A7C8C;--brand-d:#07606C;
+  --ok-bg:#DCF0E3;--ok:#1B6A3C;
+  --near-bg:#FBE8BC;--near:#7A4F00;
+  --full-bg:#F7D9E1;--full:#8C1D43;
+  --wait:#F0A53A;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Noto Sans Thai","Sukhumvit Set",Thonburi,Tahoma,sans-serif}
+h1,h2,h3,h4{font-family:Prompt,"Noto Sans Thai",sans-serif;font-weight:600;margin:0;line-height:1.25}
+h1{font-size:26px}
+h2{font-size:20px}
+h3{font-size:17px}
+a{color:var(--brand-d)}
+.wrap{max-width:640px;margin:0 auto;padding:0 14px 130px}
+.wrap.wide{max-width:920px}
+.wrap.narrow{max-width:420px;padding-top:56px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 0 10px}
+.sub{color:var(--muted);font-size:14px}
+.hint{color:var(--muted);font-size:14px;margin:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+.form{display:grid;gap:14px}
+label{display:grid;gap:6px;font-weight:500;font-size:15px}
+label.chk{display:flex;gap:8px;align-items:center;font-weight:400}
+input,select,textarea{font:inherit;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);width:100%}
+input[type=checkbox]{width:auto;accent-color:var(--brand)}
+input:focus-visible,select:focus-visible,textarea:focus-visible,.btn:focus-visible,.tabs button:focus-visible,a:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.btn{border:0;border-radius:10px;padding:11px 18px;font:inherit;font-weight:600;background:var(--brand);color:#fff;cursor:pointer}
+.btn:hover{background:var(--brand-d)}
+.btn.ghost{background:transparent;color:var(--brand-d);border:1.5px solid var(--line)}
+.btn.ghost:hover{background:#F3F8F7}
+.btn.danger{background:#B3263F}
+.btn.sm{padding:6px 12px;font-size:14px}
+.btn:disabled{opacity:.4;cursor:default}
+.foot{text-align:center;margin-top:18px;font-size:14px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 0}
+.chip{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 13px;font-size:14px}
+.chip b{font-family:Prompt,sans-serif;color:var(--brand-d)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:14px 0}
+.tabs button{flex:1;background:none;border:0;padding:10px 6px;font:inherit;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer}
+.tabs button.on{color:var(--brand-d);border-color:var(--brand);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted);margin:0 0 6px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.month{margin-top:20px}
+.dow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:13px;color:var(--muted);margin:8px 0 4px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cell{aspect-ratio:1/1.08;border-radius:8px;border:2px solid transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;font:inherit;line-height:1.15;cursor:pointer;color:inherit}
+.cell b{font-size:16px;font-weight:600}
+.cell small{font-size:10.5px;white-space:nowrap}
+.cell:disabled{cursor:default}
+.cell:focus-visible{outline:3px solid var(--ink);outline-offset:1px}
+.cell.blank{visibility:hidden}
+.cell.off{background:transparent;color:#9BAAAE;cursor:default}
+.free{background:var(--ok-bg);color:var(--ok)}
+.near{background:var(--near-bg);color:var(--near)}
+.full{background:var(--full-bg);color:var(--full)}
+.closed{background:#E3E9E8;color:#6A7C82}
+.holiday{background:repeating-linear-gradient(135deg,#E3E9E8 0 5px,#F1F5F4 5px 10px);color:#6A7C82}
+.mine{background:var(--brand);color:#fff}
+.minewait{background:var(--wait);color:#3A2400}
+.cell.sel{border-color:var(--ink);box-shadow:inset 0 0 0 2px #fff}
+.cell.today b{text-decoration:underline;text-underline-offset:3px}
+.cell.ovr::after{content:"";position:absolute}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;box-shadow:0 -6px 18px rgba(10,40,50,.08)}
+.bar input{width:84px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+.row .r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.b{font-style:normal;font-size:13px;padding:2px 10px;border-radius:999px;font-weight:500;white-space:nowrap}
+.b.ok{background:var(--ok-bg);color:var(--ok)}
+.b.wait{background:var(--near-bg);color:var(--near)}
+.b.cancel{background:#E3E9E8;color:#5B7077}
+.sec{margin:20px 0 8px;font-size:15px;color:var(--muted);font-weight:600}
+.empty{padding:28px 10px;text-align:center;color:var(--muted)}
+dialog{border:0;border-radius:16px;padding:0;width:min(520px,calc(100% - 24px));max-height:88vh;color:var(--ink);background:var(--surface)}
+dialog::backdrop{background:rgba(10,30,36,.5)}
+.dlg{padding:18px;display:grid;gap:12px}
+.dlg ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.dlg li{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px 10px;background:#F3F8F7;border-radius:8px;font-size:15px}
+.acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.warn{background:var(--near-bg);color:var(--near);padding:10px 12px;border-radius:10px;font-size:14px}
+.errtxt{color:var(--full);font-size:14px}
+.okbox{background:var(--ok-bg);color:var(--ok);padding:10px 12px;border-radius:10px;font-size:14px}
+.ecard{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;margin-bottom:12px}
+.ecard h4{grid-column:1/-1}
+#overlay{position:fixed;inset:0;background:rgba(238,243,242,.65);display:flex;align-items:center;justify-content:center;z-index:50}
+.spin{width:38px;height:38px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--brand);animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toast{position:fixed;left:50%;top:14px;transform:translate(-50%,-90px);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;z-index:60;max-width:calc(100% - 28px);transition:transform .2s;font-size:15px}
+#toast.show{transform:translate(-50%,0)}
+#toast.err{background:#B3263F}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;background:var(--surface);border-radius:12px;overflow:hidden}
+.tbl th,.tbl td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line)}
+.tbl th{background:#F3F8F7;font-weight:600}
+.scroll{overflow-x:auto}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.filters select{width:auto;min-width:150px}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2s}#toast{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="overlay" hidden><div class="spin" role="progressbar" aria-label="กำลังโหลด"></div></div>
+<div id="toast" role="status"></div>
+<dialog id="dlg"></dialog>
+
+<script>
+/* ==================== ตั้งค่า ==================== */
+// วาง URL ของ Web App ที่ได้จากการ Deploy ใน Apps Script ตรงนี้
+const API_URL = 'https://script.google.com/macros/s/AKfycbxs6CtG-TtxjGMYUxuQfq-IWVCOGI-n6GL4vOwJHe_j3dqLvMB_CQU57Ul9d_Uo5YEe/exec';
+
+/* ==================== ตัวช่วย ==================== */
+const TYPE = { vacation: 'พักร้อน', annual: 'วันหยุดประจำปี' };
+const DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d, 12); };
+const iso = (y, m, d) => y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+const fmtLong = d => parse(d).toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const fmtShort = d => parse(d).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
+const monthName = (y, m) => new Date(y, m - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+
+let A = {
+  role: null, emp: null, pin: null, adminPin: null, mode: null,
+  st: null, ad: null, tab: 'cal', sel: new Set(), multi: false,
+  title: 'ขอวันลา', roster: [], lastEmp: null, loadedAt: 0, filter: { emp: '', month: '' }
+};
+
+async function post(body) {
+  let res;
+  try { res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(body) }); }
+  catch (e) { throw new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง'); }
+  let j;
+  try { j = await res.json(); }
+  catch (e) { throw new Error('เซิร์ฟเวอร์ตอบกลับผิดรูปแบบ ตรวจสอบว่า Deploy แบบ "Anyone" แล้ว'); }
+  if (!j.ok) throw new Error(j.error);
+  return j.data;
+}
+let busyN = 0;
+async function busy(p) {
+  busyN++; $('#overlay').hidden = false;
+  try { return await p; } finally { if (--busyN === 0) $('#overlay').hidden = true; }
+}
+function toast(msg, err) {
+  const t = $('#toast');
+  t.textContent = msg; t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(toast.t); toast.t = setTimeout(() => { t.className = ''; }, 4000);
+}
+function call(action, extra) {
+  const body = Object.assign({ action }, extra || {});
+  if (A.role === 'emp') { body.emp_id = A.emp.id; body.pin = A.pin; }
+  else if (A.role === 'admin') { body.admin_pin = A.adminPin; }
+  return busy(post(body));
+}
+const fail = e => toast(e.message || String(e), true);
+
+function openDlg(html) { const d = $('#dlg'); d.innerHTML = '<div class="dlg">' + html + '</div>'; if (!d.open) d.showModal(); }
+function closeDlg() { const d = $('#dlg'); if (d.open) d.close(); }
+
+function badge(status, pos) {
+  if (status === 'confirmed') return '<em class="b ok">ยืนยันแล้ว</em>';
+  if (status === 'waitlist') return '<em class="b wait">รอคิวลำดับที่ ' + pos + '</em>';
+  return '<em class="b cancel">ยกเลิกแล้ว</em>';
+}
+const dayMap = () => { const m = {}; (A.role === 'admin' ? A.ad : A.st).days.forEach(x => { m[x.d] = x; }); return m; };
+
+/* ==================== ปฏิทิน ==================== */
+function calendarHTML(days, cellFn) {
+  const by = {}; days.forEach(x => { by[x.d] = x; });
+  const months = [];
+  days.forEach(x => { const k = x.d.slice(0, 7); if (!months.includes(k)) months.push(k); });
+  return months.map(k => {
+    const [y, m] = k.split('-').map(Number);
+    const first = new Date(y, m - 1, 1).getDay(), n = new Date(y, m, 0).getDate();
+    let cells = '';
+    for (let i = 0; i < first; i++) cells += '<div class="cell blank"></div>';
+    for (let d = 1; d <= n; d++) {
+      const key = iso(y, m, d);
+      cells += by[key] ? cellFn(by[key]) : '<div class="cell off"><b>' + d + '</b></div>';
+    }
+    return '<section class="month"><h3>' + monthName(y, m) + '</h3><div class="dow">' +
+      DOW.map(x => '<span>' + x + '</span>').join('') + '</div><div class="grid">' + cells + '</div></section>';
+  }).join('');
+}
+function cellHTML(x, cls, sub, dis, extra) {
+  const sel = A.sel.has(x.d) ? ' sel' : '';
+  const today = x.d === (A.st || A.ad).today ? ' today' : '';
+  return '<button class="cell ' + cls + sel + today + '" data-act="day" data-d="' + x.d + '"' + (dis ? ' disabled' : '') +
+    ' aria-label="' + esc(fmtShort(x.d) + ' ' + (extra || sub)) + '"><b>' + (+x.d.slice(8)) + '</b><small>' + sub + '</small></button>';
+}
+function empCell(x) {
+  let cls = 'free', sub = '', dis = false;
+  if (x.m) { cls = x.m.status === 'confirmed' ? 'mine' : 'minewait'; sub = x.m.status === 'confirmed' ? 'ลาแล้ว' : 'คิว ' + x.m.pos; }
+  else if (x.d < A.st.min_date) { cls = 'off'; dis = true; }
+  else if (x.h) { cls = 'holiday'; sub = 'หยุด'; dis = true; }
+  else if (x.q <= 0) { cls = 'closed'; sub = 'ปิด'; dis = true; }
+  else {
+    const rem = x.q - x.c;
+    if (rem >= 2) { cls = 'free'; sub = 'ว่าง ' + rem; }
+    else if (rem === 1) { cls = 'near'; sub = 'ว่าง 1'; }
+    else { cls = 'full'; sub = 'เต็ม'; }
+  }
+  return cellHTML(x, cls, sub, dis);
+}
+function admCell(x) {
+  let cls, sub;
+  if (x.h) { cls = 'holiday'; sub = esc(x.h.slice(0, 5)); }
+  else if (x.q <= 0) { cls = 'closed'; sub = 'ปิด'; }
+  else {
+    const rem = x.q - x.c;
+    cls = rem >= 2 ? 'free' : rem === 1 ? 'near' : 'full';
+    sub = x.c + '/' + x.q + (x.w ? '+' + x.w : '') + (x.override ? '*' : '');
+  }
+  return cellHTML(x, cls, sub, false);
+}
+const legendEmp = '<div class="legend"><span><i style="background:var(--ok-bg)"></i>ว่าง</span><span><i style="background:var(--near-bg)"></i>เหลือ 1 ที่</span><span><i style="background:var(--full-bg)"></i>เต็ม เข้าคิวสำรองได้</span><span><i style="background:var(--brand)"></i>ลาแล้ว</span><span><i style="background:var(--wait)"></i>รอคิว</span><span><i style="background:#E3E9E8"></i>หยุด/ปิดรับ</span></div>';
+
+/* ==================== หน้าเข้าสู่ระบบ ==================== */
+function loginView() {
+  if (API_URL.startsWith('PASTE')) {
+    return '<div class="wrap narrow"><div class="card form"><h2>ยังไม่ได้เชื่อมต่อระบบ</h2><p class="hint">เปิดไฟล์นี้ด้วยโปรแกรมแก้ไขข้อความ แล้วใส่ URL ของ Web App ที่ได้จากการ Deploy ไว้ที่ตัวแปร API_URL ใกล้ส่วนบนของสคริปต์</p></div></div>';
+  }
+  if (A.mode === 'admin') {
+    return '<div class="wrap narrow"><h1>แอดมิน</h1><p class="sub">ใส่รหัสแอดมินเพื่อจัดการวันลา</p><div class="card form" style="margin-top:14px"><label>รหัสแอดมิน<input id="a-pin" type="password" inputmode="numeric" autocomplete="current-password"></label><button class="btn" data-act="admin-login">เข้าสู่ระบบแอดมิน</button></div><p class="foot"><a href="#" data-act="to-emp">กลับไปหน้าพนักงาน</a></p></div>';
+  }
+  if (!A.roster.length) {
+    return '<div class="wrap narrow"><div class="card"><p class="hint">ไม่พบรายชื่อพนักงาน กรุณาติดต่อแอดมิน</p></div></div>';
+  }
+  return '<div class="wrap narrow"><h1>' + esc(A.title) + '</h1><p class="sub">เลือกชื่อของคุณ แล้วใส่ PIN</p>' +
+    '<div class="card form" style="margin-top:14px"><label>ชื่อ<select id="l-emp">' +
+    A.roster.map(p => '<option value="' + esc(p.id) + '"' + (p.id === A.lastEmp ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') +
+    '</select></label><label>PIN<input id="l-pin" type="password" inputmode="numeric" autocomplete="current-password"></label>' +
+    '<label class="chk"><input type="checkbox" id="l-rem" checked> จำฉันไว้ในเครื่องนี้</label>' +
+    '<button class="btn" data-act="login">เข้าสู่ระบบ</button></div><p class="foot"><a href="#" data-act="to-admin">สำหรับแอดมิน</a></p></div>';
+}
+
+/* ==================== มุมมองพนักงาน ==================== */
+function empView() {
+  const st = A.st;
+  const two = st.balances.length > 1;
+  const chips = st.balances.map(b => ['vacation', 'annual'].map(t =>
+    '<span class="chip">' + TYPE[t] + (two ? ' ปี ' + (b.year + 543) : '') + ' เหลือ <b>' + (b[t].total - b[t].used) + '</b>/' + b[t].total + ' วัน</span>').join('')).join('');
+  const upN = st.mine.filter(r => r.status !== 'cancelled' && r.date >= st.today).length;
+  let body;
+  if (A.tab === 'cal') {
+    body = '<p class="hint" style="margin-bottom:10px">ขอลาได้ตั้งแต่ ' + fmtShort(st.min_date) + ' ถึง ' + fmtShort(st.max_date) + ' แตะวันที่ต้องการ (เลือกได้หลายวัน) แล้วกดถัดไป</p>' +
+      legendEmp + calendarHTML(st.days, empCell);
+  } else body = myListHTML();
+  const bar = (A.tab === 'cal' && A.sel.size)
+    ? '<div class="bar"><b>เลือก ' + A.sel.size + ' วัน</b><button class="btn ghost sm" data-act="clear-sel">ล้าง</button><button class="btn" data-act="next">ถัดไป</button></div>' : '';
+  return '<div class="wrap"><div class="top"><div><h2>' + esc(st.title) + '</h2><div class="sub">' + esc(st.me.name) + '</div></div><button class="btn ghost sm" data-act="logout">ออกจากระบบ</button></div>' +
+    '<div class="chips">' + chips + '</div>' +
+    '<nav class="tabs"><button data-act="tab" data-t="cal" class="' + (A.tab === 'cal' ? 'on' : '') + '">ปฏิทิน</button><button data-act="tab" data-t="list" class="' + (A.tab === 'list' ? 'on' : '') + '">คำร้องของฉัน' + (upN ? ' (' + upN + ')' : '') + '</button></nav>' +
+    body + bar + '</div>';
+}
+function reqRow(r) {
+  return '<div class="row"><div><b>' + fmtLong(r.date) + '</b><div class="sub">' + TYPE[r.type] + (r.note ? ' – ' + esc(r.note) : '') + '</div></div><div class="r">' +
+    badge(r.status, r.pos) + (r.status !== 'cancelled' && r.date >= A.st.today ? '<button class="btn ghost sm" data-act="open-req" data-id="' + r.id + '">จัดการ</button>' : '') + '</div></div>';
+}
+function myListHTML() {
+  const m = A.st.mine, t = A.st.today;
+  const up = m.filter(r => r.status !== 'cancelled' && r.date >= t).sort((a, b) => a.date.localeCompare(b.date));
+  const past = m.filter(r => r.status !== 'cancelled' && r.date < t).sort((a, b) => b.date.localeCompare(a.date));
+  const can = m.filter(r => r.status === 'cancelled').slice(0, 20);
+  let h = '<div class="sec">กำลังจะถึง</div>' + (up.length ? up.map(reqRow).join('') : '<div class="empty">ยังไม่มีคำร้อง ไปเลือกวันที่หน้าปฏิทินได้เลย</div>');
+  if (past.length) h += '<div class="sec">ผ่านมาแล้ว</div>' + past.map(reqRow).join('');
+  if (can.length) h += '<div class="sec">ยกเลิกแล้ว</div>' + can.map(reqRow).join('');
+  return h;
+}
+
+/* ---- ขอลา ---- */
+function openRequestDialog() {
+  const dates = [...A.sel].sort(), by = dayMap();
+  let anyFull = false;
+  const rows = dates.map(d => {
+    const x = by[d], full = x.q - x.c <= 0; if (full) anyFull = true;
+    return '<li><span>' + fmtShort(d) + '</span>' + (full ? '<em class="b wait">เต็ม เข้าคิวสำรองลำดับที่ ' + (x.w + 1) + '</em>' : '<em class="b ok">ได้ที่ทันที</em>') + '</li>';
+  }).join('');
+  const bal = A.st.balances.find(b => b.year === +dates[0].slice(0, 4)) || A.st.balances[0];
+  openDlg('<h2>ขอลา ' + dates.length + ' วัน</h2><ul>' + rows + '</ul>' +
+    (anyFull ? '<div class="warn">วันที่เต็มแล้วคุณจะอยู่ในคิวสำรอง ถ้าคนก่อนหน้ายกเลิก คุณจะได้ที่โดยอัตโนมัติ ยอดวันลาจะถูกหักไว้ตั้งแต่ตอนนี้และคืนให้เมื่อคุณยกเลิก</div>' : '') +
+    '<label>ประเภท<select id="f-type"><option value="vacation">พักร้อน (เหลือ ' + (bal.vacation.total - bal.vacation.used) + ' วัน)</option><option value="annual">วันหยุดประจำปี (เหลือ ' + (bal.annual.total - bal.annual.used) + ' วัน)</option></select></label>' +
+    '<label>หมายเหตุ (ไม่บังคับ)<textarea id="f-note" rows="2" maxlength="200"></textarea></label>' +
+    '<div class="acts"><button class="btn ghost" data-act="close">กลับ</button><button class="btn" data-act="submit-req">ยืนยันขอลา</button></div>');
+}
+async function submitRequest() {
+  const dates = [...A.sel].sort(), type = $('#f-type').value, note = $('#f-note').value;
+  try {
+    const res = await call('request', { dates, type, note });
+    A.st = res.state; A.sel.clear();
+    const ok = res.results.filter(r => r.ok), bad = res.results.filter(r => !r.ok);
+    openDlg('<h2>' + (bad.length ? 'ส่งคำร้องแล้วบางส่วน' : 'ส่งคำร้องแล้ว') + '</h2><ul>' +
+      res.results.map(r => '<li><span>' + fmtShort(r.date) + '</span>' + (r.ok ? badge(r.status, r.pos) : '<span class="errtxt">' + esc(r.error) + '</span>') + '</li>').join('') +
+      '</ul>' + (ok.length ? '' : '<p class="hint">ไม่มีวันใดถูกบันทึก</p>') + '<div class="acts"><button class="btn" data-act="close">ตกลง</button></div>');
+    render();
+  } catch (e) { fail(e); }
+}
+
+/* ---- จัดการคำร้อง ---- */
+function openReq(id) {
+  const r = A.st.mine.find(x => x.id === id); if (!r) return;
+  openDlg('<h2>' + fmtLong(r.date) + '</h2><div>' + badge(r.status, r.pos) + ' <span class="sub">' + TYPE[r.type] + '</span></div>' + (r.note ? '<p class="hint">หมายเหตุ: ' + esc(r.note) + '</p>' : '') +
+    (r.status === 'waitlist' ? '<p class="hint">ถ้ามีคนก่อนหน้ายกเลิก คุณจะได้ที่โดยอัตโนมัติ</p>' : '') +
+    (r.editable ? '' : '<div class="warn">ใกล้วันลาเกินไป จึงแก้ไขหรือยกเลิกเองไม่ได้ กรุณาติดต่อแอดมิน</div>') +
+    '<div class="acts"><button class="btn ghost" data-act="close">ปิด</button>' +
+    (r.editable ? '<button class="btn ghost" data-act="edit-req" data-id="' + id + '">แก้ไขวัน</button><button class="btn danger" data-act="cancel-req" data-id="' + id + '">ยกเลิกคำร้อง</button>' : '') + '</div>');
+}
+function openEdit(id) {
+  const r = A.st.mine.find(x => x.id === id);
+  openDlg('<h2>แก้ไขวันลา</h2><p style="margin:0">วันเดิม: <b>' + fmtLong(r.date) + '</b></p>' +
+    '<label>เปลี่ยนเป็นวันที่<input type="date" id="e-date" min="' + A.st.min_date + '" max="' + A.st.max_date + '"></label>' +
+    '<p class="hint" id="e-info">เลือกวันใหม่เพื่อดูสถานะ</p>' +
+    '<div class="warn">การแก้ไขวันจะยกเลิกคำร้องเดิม และคำร้องใหม่จะไปต่อท้ายคิวของวันที่เลือก แม้ตอนนี้คุณจะได้ที่แล้วก็ตาม</div>' +
+    '<label class="chk"><input type="checkbox" id="e-ack"> รับทราบ และยอมไปต่อท้ายคิว</label>' +
+    '<div class="acts"><button class="btn ghost" data-act="close">ปิด</button><button class="btn" id="e-go" data-act="do-edit" data-id="' + id + '" disabled>บันทึกการแก้ไข</button></div>');
+}
+function editCheck() {
+  const date = $('#e-date').value, info = $('#e-info'), go = $('#e-go');
+  const x = dayMap()[date]; let ok = false, txt = 'เลือกวันใหม่เพื่อดูสถานะ';
+  if (date) {
+    if (!x) txt = 'วันที่นี้อยู่นอกช่วงที่ขอได้';
+    else if (x.m) txt = 'คุณมีคำร้องของวันนี้อยู่แล้ว';
+    else if (date < A.st.min_date) txt = 'ต้องขอล่วงหน้าอย่างน้อยตามที่กำหนด';
+    else if (x.h) txt = 'เป็นวันหยุด (' + x.h + ')';
+    else if (x.q <= 0) txt = 'วันนี้ปิดรับลา';
+    else if (x.q - x.c > 0) { ok = true; txt = 'ว่าง ' + (x.q - x.c) + ' ที่ คุณจะได้ที่ทันที'; }
+    else { ok = true; txt = 'เต็มแล้ว คุณจะเข้าคิวสำรองลำดับที่ ' + (x.w + 1); }
+  }
+  info.textContent = txt;
+  go.disabled = !(ok && $('#e-ack').checked);
+}
+async function doEdit(id) {
+  try {
+    const res = await call('change', { request_id: id, new_date: $('#e-date').value });
+    A.st = res.state; closeDlg();
+    toast(res.result.status === 'confirmed' ? 'แก้ไขแล้ว ได้ที่ในวันใหม่' : 'แก้ไขแล้ว คุณอยู่คิวสำรองลำดับที่ ' + res.result.pos);
+    render();
+  } catch (e) { fail(e); }
+}
+function confirmCancel(id) {
+  const r = A.st.mine.find(x => x.id === id);
+  openDlg('<h2>ยกเลิกคำร้อง?</h2><p style="margin:0">' + fmtLong(r.date) + ' (' + TYPE[r.type] + ')</p><p class="hint">ยอดวันลาจะถูกคืนให้ และคนในคิวสำรองจะได้ที่แทน</p>' +
+    '<div class="acts"><button class="btn ghost" data-act="close">ไม่ยกเลิก</button><button class="btn danger" data-act="do-cancel" data-id="' + id + '">ยืนยันยกเลิก</button></div>');
+}
+async function doCancel(id) {
+  try { const res = await call('cancel', { request_id: id }); A.st = res.state; closeDlg(); toast('ยกเลิกคำร้องแล้ว'); render(); }
+  catch (e) { fail(e); }
+}
+
+/* ==================== มุมมองแอดมิน ==================== */
+function adminView() {
+  const d = A.ad;
+  const tabs = [['cal', 'โควต้ารายวัน'], ['emp', 'พนักงาน'], ['req', 'คำร้องทั้งหมด'], ['set', 'ตั้งค่า']];
+  let body = '';
+  if (A.tab === 'cal') {
+    body = '<div class="legend"><span>ตัวเลข = ยืนยันแล้ว/โควต้า</span><span>+n = คิวสำรอง</span><span>* = โควต้าที่ตั้งเฉพาะวัน</span></div>' +
+      '<label class="chk" style="margin:6px 0"><input type="checkbox" data-act="multi"' + (A.multi ? ' checked' : '') + '> โหมดเลือกหลายวัน (ตั้งโควต้าหรือวันหยุดทีละหลายวัน)</label>' + calendarHTML(d.days, admCell);
+  } else if (A.tab === 'emp') body = admEmpHTML();
+  else if (A.tab === 'req') body = admReqHTML();
+  else body = admSetHTML();
+  const bar = (A.tab === 'cal' && A.multi && A.sel.size)
+    ? '<div class="bar"><b>เลือก ' + A.sel.size + ' วัน</b><input id="m-q" type="number" min="0" max="50" placeholder="โควต้า" aria-label="โควต้า"><button class="btn sm" data-act="m-quota">ตั้งโควต้า</button><button class="btn ghost sm" data-act="m-hol">ตั้งเป็นวันหยุด</button><button class="btn ghost sm" data-act="m-clear">ล้างค่า</button><button class="btn ghost sm" data-act="clear-sel">เลิกเลือก</button></div>' : '';
+  return '<div class="wrap wide"><div class="top"><div><h1>แอดมิน</h1><div class="sub">' + esc(d.settings.title) + '</div></div><button class="btn ghost sm" data-act="logout">ออกจากระบบ</button></div>' +
+    '<nav class="tabs">' + tabs.map(t => '<button data-act="tab" data-t="' + t[0] + '" class="' + (A.tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>').join('') + '</nav>' + body + bar + '</div>';
+}
+function openDay(d) {
+  const x = A.ad.days.find(y => y.d === d); if (!x) return;
+  const emps = A.ad.employees.filter(e => e.active);
+  openDlg('<h2>' + fmtLong(d) + '</h2>' +
+    '<p class="hint">โควต้า ' + x.q + ' คน' + (x.override ? ' (ตั้งเฉพาะวันนี้)' : ' (ค่าเริ่มต้น)') + (x.h ? ' · วันหยุด: ' + esc(x.h) : '') + '</p>' +
+    (x.list.length ? '<ul>' + x.list.map(r => '<li><span>' + esc(r.name) + ' <span class="sub">' + TYPE[r.type] + '</span></span><span class="r" style="display:flex;gap:6px;align-items:center">' + badge(r.status, r.pos) + '<button class="btn danger sm" data-act="a-cancel" data-id="' + r.id + '" data-d="' + d + '">ยกเลิก</button></span></li>').join('') + '</ul>' : '<p class="hint">ยังไม่มีคนขอลาวันนี้</p>') +
+    '<div class="ecard" style="margin:0"><label>โควต้าเฉพาะวันนี้<input id="d-q" type="number" min="0" max="50" value="' + (x.override ? x.q : '') + '" placeholder="ค่าเริ่มต้น"></label><button class="btn sm" data-act="d-quota" data-d="' + d + '">บันทึกโควต้า</button></div>' +
+    '<div class="ecard" style="margin:0"><label>วันหยุด<input id="d-h" type="text" maxlength="40" value="' + esc(x.h || '') + '" placeholder="ชื่อวันหยุด"></label><div style="display:flex;gap:6px"><button class="btn ghost sm" data-act="d-hol" data-d="' + d + '">ตั้งเป็นวันหยุด</button>' + (x.h ? '<button class="btn ghost sm" data-act="d-unhol" data-d="' + d + '">ยกเลิกวันหยุด</button>' : '') + '</div></div>' +
+    '<div class="ecard" style="margin:0"><label>เพิ่มคำร้องให้พนักงาน<select id="d-emp">' + emps.map(e => '<option value="' + esc(e.id) + '">' + esc(e.name) + '</option>').join('') + '</select></label><label>ประเภท<select id="d-type"><option value="vacation">พักร้อน</option><option value="annual">วันหยุดประจำปี</option></select></label><button class="btn sm" data-act="d-add" data-d="' + d + '">เพิ่ม</button></div>' +
+    '<div class="acts"><button class="btn ghost" data-act="close">ปิด</button></div>');
+}
+async function admCall(action, extra, reopen) {
+  try {
+    const res = await call(action, extra); A.ad = res.state; render();
+    if (reopen) openDay(reopen); else closeDlg();
+    return res;
+  } catch (e) { fail(e); }
+}
+function admEmpHTML() {
+  const list = A.ad.employees.concat([{ id: '', name: '', pin: '', email: '', vacation_days: 0, annual_days: 0, active: true }]);
+  return '<p class="hint" style="margin-bottom:10px">กำหนดสิทธิ์วันลาต่อปี (นับแยกตามปีของวันที่ลา ไม่ยกยอดข้ามปี) ปิดการใช้งานพนักงานที่ออกแล้วแทนการลบ</p>' +
+    list.map(e => '<div class="card ecard" data-id="' + esc(e.id) + '"><h4>' + (e.id ? esc(e.name) : 'เพิ่มพนักงานใหม่') + '</h4>' +
+      '<label>ชื่อ<input name="name" value="' + esc(e.name) + '"></label><label>PIN (ตัวเลข 4–8 หลัก)<input name="pin" inputmode="numeric" value="' + esc(e.pin) + '"></label>' +
+      '<label>อีเมล (แจ้งเตือนเมื่อได้คิว)<input name="email" type="email" value="' + esc(e.email) + '"></label>' +
+      '<label>วันพักร้อน/ปี<input name="vacation_days" type="number" min="0" value="' + e.vacation_days + '"></label><label>วันหยุดประจำปี/ปี<input name="annual_days" type="number" min="0" value="' + e.annual_days + '"></label>' +
+      '<label class="chk"><input name="active" type="checkbox"' + (e.active ? ' checked' : '') + '> ใช้งานอยู่</label><button class="btn sm" data-act="save-emp">บันทึก</button></div>').join('');
+}
+function admReqHTML() {
+  const d = A.ad, f = A.filter;
+  const months = [...new Set(d.requests.map(r => r.date.slice(0, 7)))].sort().reverse();
+  const rows = d.requests.filter(r => (!f.emp || r.emp_id === f.emp) && (!f.month || r.date.startsWith(f.month)))
+    .sort((a, b) => b.date.localeCompare(a.date) || a._row - b._row);
+  return '<div class="filters"><select id="f-emp" data-act="filter"><option value="">พนักงานทั้งหมด</option>' + d.employees.map(e => '<option value="' + esc(e.id) + '"' + (f.emp === e.id ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('') + '</select>' +
+    '<select id="f-month" data-act="filter"><option value="">ทุกเดือน</option>' + months.map(m => '<option value="' + m + '"' + (f.month === m ? ' selected' : '') + '>' + monthName(+m.slice(0, 4), +m.slice(5)) + '</option>').join('') + '</select>' +
+    '<button class="btn ghost sm" data-act="export">ส่งออก CSV</button></div>' +
+    (rows.length ? '<div class="scroll"><table class="tbl"><thead><tr><th>วันที่ลา</th><th>พนักงาน</th><th>ประเภท</th><th>สถานะ</th><th>หมายเหตุ</th><th></th></tr></thead><tbody>' +
+      rows.map(r => '<tr><td>' + fmtShort(r.date) + ' ' + (+r.date.slice(0, 4) + 543) + '</td><td>' + esc(r.name) + '</td><td>' + TYPE[r.type] + '</td><td>' + badge(r.status, r.pos) + '</td><td>' + esc(r.note) + '</td><td>' +
+        (r.status !== 'cancelled' ? '<button class="btn danger sm" data-act="a-cancel" data-id="' + r.id + '">ยกเลิก</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="empty">ไม่พบคำร้อง</div>');
+}
+function admSetHTML() {
+  const s = A.ad.settings, wd = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+  return '<div class="card form"><label>ชื่อระบบ<input id="s-title" value="' + esc(s.title) + '"></label>' +
+    '<div class="ecard" style="margin:0"><label>ลาล่วงหน้าขั้นต่ำ (วัน)<input id="s-min" type="number" min="0" max="60" value="' + s.min_advance_days + '"></label><label>ลาล่วงหน้าสูงสุด (เดือน)<input id="s-max" type="number" min="1" max="12" value="' + s.max_advance_months + '"></label><label>โควต้าเริ่มต้นต่อวัน (คน)<input id="s-def" type="number" min="0" max="50" value="' + s.default_quota + '"></label></div>' +
+    '<div><b>โควต้าตามวันในสัปดาห์</b><p class="hint">เว้นว่างไว้ = ใช้โควต้าเริ่มต้น</p></div>' +
+    '<div class="ecard" style="margin:0">' + wd.map((n, i) => '<label>' + n + '<input id="s-q' + i + '" type="number" min="0" max="50" value="' + esc(s['q' + i]) + '"></label>').join('') + '</div>' +
+    '<label>ลิงก์หน้าเว็บนี้ (ใส่ในอีเมลแจ้งเตือน)<input id="s-url" value="' + esc(s.page_url) + '" placeholder="https://..."></label>' +
+    '<label>เปลี่ยนรหัสแอดมิน (เว้นว่างถ้าไม่เปลี่ยน)<input id="s-pin" type="password" inputmode="numeric" autocomplete="new-password"></label>' +
+    '<button class="btn" data-act="save-set">บันทึกการตั้งค่า</button></div>';
+}
+function exportCSV() {
+  const f = A.filter;
+  const rows = A.ad.requests.filter(r => (!f.emp || r.emp_id === f.emp) && (!f.month || r.date.startsWith(f.month))).sort((a, b) => a.date.localeCompare(b.date))
+    .map(r => [r.date, r.name, TYPE[r.type], r.status === 'confirmed' ? 'ยืนยันแล้ว' : r.status === 'waitlist' ? 'รอคิวลำดับที่ ' + r.pos : 'ยกเลิกแล้ว', r.note]);
+  const csv = '\ufeff' + [['วันที่ลา', 'พนักงาน', 'ประเภท', 'สถานะ', 'หมายเหตุ']].concat(rows).map(r => r.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'leave-requests.csv'; a.click();
+}
+
+/* ==================== เรนเดอร์ & อีเวนต์ ==================== */
+function render() {
+  const y = window.scrollY;
+  $('#app').innerHTML = !A.role ? loginView() : A.role === 'emp' ? empView() : adminView();
+  window.scrollTo(0, y);
+}
+function logout() {
+  try { localStorage.removeItem('leave.sess'); } catch (e) { }
+  A.role = null; A.emp = null; A.pin = null; A.adminPin = null; A.st = null; A.ad = null; A.sel.clear(); A.mode = null; A.tab = 'cal'; A.multi = false;
+  render();
+}
+async function loadRoster() {
+  const r = await busy(post({ action: 'roster' }));
+  A.roster = r.people; A.title = r.title; document.title = r.title;
+}
+async function doLogin() {
+  const id = $('#l-emp').value, pin = $('#l-pin').value.trim(), rem = $('#l-rem').checked;
+  A.role = 'emp'; A.emp = { id }; A.pin = pin;
+  try {
+    A.st = await call('state'); A.emp = A.st.me; A.lastEmp = id; A.loadedAt = Date.now(); A.tab = 'cal';
+    try { if (rem) localStorage.setItem('leave.sess', JSON.stringify({ id, pin })); else localStorage.removeItem('leave.sess'); } catch (e) { }
+    render();
+  } catch (e) { A.role = null; A.emp = null; A.pin = null; fail(e); }
+}
+async function doAdminLogin() {
+  A.role = 'admin'; A.adminPin = $('#a-pin').value.trim();
+  try { A.ad = await call('admin_state'); A.tab = 'cal'; A.loadedAt = Date.now(); render(); }
+  catch (e) { A.role = null; A.adminPin = null; fail(e); }
+}
+async function refresh() {
+  try {
+    if (A.role === 'emp') A.st = await call('state');
+    else if (A.role === 'admin') A.ad = await call('admin_state');
+    A.loadedAt = Date.now();
+    if (!$('#dlg').open) render();
+  } catch (e) { fail(e); }
+}
+function dayClick(d) {
+  if (A.role === 'emp') {
+    const x = dayMap()[d];
+    if (x && x.m) return openReq(x.m.id);
+    if (A.sel.has(d)) A.sel.delete(d); else A.sel.add(d);
+    return render();
+  }
+  if (A.multi) { if (A.sel.has(d)) A.sel.delete(d); else A.sel.add(d); return render(); }
+  openDay(d);
+}
+function readEmp(card) {
+  const g = n => card.querySelector('[name=' + n + ']');
+  return { id: card.dataset.id, name: g('name').value, pin: g('pin').value, email: g('email').value, vacation_days: g('vacation_days').value, annual_days: g('annual_days').value, active: g('active').checked };
+}
+
+document.addEventListener('click', async ev => {
+  const el = ev.target.closest('[data-act]'); if (!el) return;
+  const act = el.dataset.act, id = el.dataset.id, d = el.dataset.d;
+  if (el.tagName === 'A') ev.preventDefault();
+  if (act === 'filter' || act === 'multi') return; // handled in change
+  switch (act) {
+    case 'login': return doLogin();
+    case 'admin-login': return doAdminLogin();
+    case 'to-admin': A.mode = 'admin'; return render();
+    case 'to-emp': A.mode = null; return render();
+    case 'logout': return logout();
+    case 'tab': A.tab = el.dataset.t; A.sel.clear(); return render();
+    case 'day': return dayClick(d);
+    case 'clear-sel': A.sel.clear(); return render();
+    case 'next': return openRequestDialog();
+    case 'close': return closeDlg();
+    case 'submit-req': return submitRequest();
+    case 'open-req': return openReq(id);
+    case 'edit-req': return openEdit(id);
+    case 'do-edit': return doEdit(id);
+    case 'cancel-req': return confirmCancel(id);
+    case 'do-cancel': return doCancel(id);
+    case 'export': return exportCSV();
+    case 'a-cancel': {
+      if (!confirm('ยกเลิกคำร้องนี้? คนในคิวสำรองจะขยับขึ้น')) return;
+      return admCall('admin_cancel', { request_id: id, reason: 'แอดมินยกเลิก' }, d || null);
+    }
+    case 'd-quota': return admCall('admin_set_quota', { dates: [d], quota: $('#d-q').value }, d);
+    case 'd-hol': return admCall('admin_set_holiday', { dates: [d], name: $('#d-h').value || 'วันหยุด' }, d);
+    case 'd-unhol': return admCall('admin_set_holiday', { dates: [d], remove: true }, d);
+    case 'd-add': {
+      const res = await admCall('admin_add', { emp_id: $('#d-emp').value, dates: [d], type: $('#d-type').value }, d);
+      if (res) { const r = res.results[0]; toast(r.ok ? 'เพิ่มคำร้องแล้ว' : r.error, !r.ok); }
+      return;
+    }
+    case 'm-quota': { const dates = [...A.sel]; A.sel.clear(); return admCall('admin_set_quota', { dates, quota: $('#m-q').value });  }
+    case 'm-hol': { const name = prompt('ชื่อวันหยุด', 'วันหยุด'); if (name === null) return; const dates = [...A.sel]; A.sel.clear(); const res = await admCall('admin_set_holiday', { dates, name }); if (res && res.affected) toast('มีคำร้องเดิม ' + res.affected + ' รายการในวันที่เลือก ตรวจสอบและยกเลิกเองได้ที่หน้าคำร้อง'); return; }
+    case 'm-clear': { const dates = [...A.sel]; A.sel.clear(); await admCall('admin_set_quota', { dates, quota: '' }); return admCall('admin_set_holiday', { dates, remove: true }); }
+    case 'save-emp': {
+      const res = await admCall('admin_save_employee', { employee: readEmp(el.closest('.ecard')) });
+      if (res) toast('บันทึกแล้ว');
+      return;
+    }
+    case 'save-set': {
+      const s = { title: $('#s-title').value, page_url: $('#s-url').value, min_advance_days: $('#s-min').value, max_advance_months: $('#s-max').value, default_quota: $('#s-def').value, admin_pin: $('#s-pin').value };
+      for (let i = 0; i < 7; i++) s['q' + i] = $('#s-q' + i).value;
+      const res = await admCall('admin_save_settings', { settings: s });
+      if (res) { if (s.admin_pin) A.adminPin = s.admin_pin; toast('บันทึกการตั้งค่าแล้ว'); }
+      return;
+    }
+  }
+});
+document.addEventListener('change', ev => {
+  const t = ev.target;
+  if (t.dataset && t.dataset.act === 'multi') { A.multi = t.checked; A.sel.clear(); render(); }
+  else if (t.dataset && t.dataset.act === 'filter') { A.filter = { emp: $('#f-emp').value, month: $('#f-month').value }; render(); }
+  else if (t.id === 'e-date' || t.id === 'e-ack') editCheck();
+});
+document.addEventListener('keydown', ev => {
+  if (ev.key !== 'Enter') return;
+  if (ev.target.id === 'l-pin') doLogin();
+  else if (ev.target.id === 'a-pin') doAdminLogin();
+});
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && A.role && Date.now() - A.loadedAt > 30000) refresh();
+});
+
+/* ==================== เริ่มทำงาน ==================== */
+(async function init() {
+  if (API_URL.startsWith('PASTE')) return render();
+  try {
+    await loadRoster();
+    let sess = null;
+    try { sess = JSON.parse(localStorage.getItem('leave.sess') || 'null'); } catch (e) { }
+    if (sess) {
+      A.lastEmp = sess.id; A.role = 'emp'; A.emp = { id: sess.id }; A.pin = sess.pin;
+      try { A.st = await call('state'); A.emp = A.st.me; A.loadedAt = Date.now(); }
+      catch (e) { A.role = null; A.emp = null; A.pin = null; try { localStorage.removeItem('leave.sess'); } catch (x) { } }
+    }
+  } catch (e) { fail(e); }
+  render();
+})();
+</script>
+</body>
+</html>
