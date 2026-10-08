@@ -116,6 +116,60 @@ dialog::backdrop{background:rgba(10,30,36,.5)}
 <div id="toast" role="status"></div>
 <dialog id="dlg"></dialog>
 
+<!-- ตัวอย่าง HTML สำหรับแสดงสถานะกำลังโหลด -->
+<div id="loading-spinner" style="display: none; text-align: center; padding: 20px;">
+  <p>กำลังโหลดข้อมูล, กรุณารอสักครู่...</p>
+</div>
+
+<script>
+  // ฟังก์ชันดึงข้อมูลพนักงานพร้อมระบบ Caching
+  function loadEmployeesData() {
+    const cachedData = localStorage.getItem('jwe_employees_cache');
+    const cacheTime = localStorage.getItem('jwe_cache_time');
+    const now = new Date().getTime();
+
+    // ตรวจสอบว่ามี Cache อยู่และยังไม่เกิน 1 ชั่วโมง (3600000 ms)
+    if (cachedData && cacheTime && (now - cacheTime < 3600000)) {
+      console.log("Using cached employees data");
+      renderEmployees(JSON.parse(cachedData));
+    } else {
+      showLoading(true);
+      // เรียกข้อมูลจาก Google Apps Script (Backend)
+      google.script.run
+        .withSuccessHandler(function(data) {
+          // บันทึกลง localStorage
+          localStorage.setItem('jwe_employees_cache', JSON.stringify(data));
+          localStorage.setItem('jwe_cache_time', new Date().getTime());
+          renderEmployees(data);
+          showLoading(false);
+        })
+        .withFailureHandler(function(error) {
+          console.error("Error loading data:", error);
+          showLoading(false);
+          alert("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
+        })
+        .getEmployeesData(); // ชื่อฟังก์ชันฝั่ง Apps Script ของคุณ
+    }
+  }
+
+  function showLoading(isLoading) {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) {
+      spinner.style.display = isLoading ? 'block' : 'none';
+    }
+  }
+
+  function renderEmployees(data) {
+    // โค้ดสำหรับแสดงผลข้อมูลลงในตาราง HTML ของคุณ
+    console.log("Rendering data...", data);
+  }
+
+  // เรียกใช้งานเมื่อโหลดหน้าเว็บ
+  window.onload = function() {
+    loadEmployeesData();
+  };
+</script>
+  
 <script>
 /* ==================== ตั้งค่า ==================== */
 // วาง URL ของ Web App ที่ได้จากการ Deploy ใน Apps Script ตรงนี้
