@@ -124,6 +124,30 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbzZtHTp2TwaRggGHUVARBUK
 /* ==================== ตัวช่วย ==================== */
 const TYPE = { vacation: 'พักร้อน', annual: 'วันหยุดประจำปี' };
 const DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+const PLAB = ['', 'ม.ค.–ก.พ.', 'มี.ค.–เม.ย.', 'พ.ค.–มิ.ย.', 'ก.ค.–ส.ค.', 'ก.ย.–ต.ค.', 'พ.ย.–ธ.ค.'];
+const periodOf = d => Math.ceil(+d.slice(5, 7) / 2);
+const annBal = (bs, y, p) => ((bs.find(b => b.year === y) || { annual: [] }).annual[p - 1]) || null;
+function periodsBetween(from, to) {
+  const out = []; let [y, m] = from.split('-').map(Number); const [ty, tm] = to.split('-').map(Number);
+  while (y < ty || (y === ty && m <= tm)) {
+    const p = Math.ceil(m / 2); if (!out.some(o => o.y === y && o.p === p)) out.push({ y, p });
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return out;
+}
+function periodsOfDates(dates) {
+  const out = []; dates.forEach(d => { const y = +d.slice(0, 4), p = periodOf(d); if (!out.some(o => o.y === y && o.p === p)) out.push({ y, p }); });
+  return out;
+}
+function balanceChips(bals, from, to) {
+  const two = bals.length > 1;
+  let h = bals.map(b => '<span class="chip">พักร้อน' + (two ? ' ปี ' + (b.year + 543) : '') + ' เหลือ <b>' + (b.vacation.total - b.vacation.used) + '</b>/' + b.vacation.total + ' วัน</span>').join('');
+  h += periodsBetween(from, to).map(o => {
+    const a = annBal(bals, o.y, o.p); if (!a) return '';
+    return '<span class="chip">วันหยุดประจำปี ' + PLAB[o.p] + (two ? ' ' + (o.y + 543) : '') + ' เหลือ <b>' + (a.total - a.used) + '</b>/' + a.total + ' วัน</span>';
+  }).join('');
+  return h;
+}
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d, 12); };
@@ -255,9 +279,7 @@ function mineView() {
       '<label>PIN<input id="u-pin" type="password" inputmode="numeric" autocomplete="off"></label>' +
       '<button class="btn" data-act="unlock">เปิดดูคำร้อง</button></div>';
   }
-  const st = A.st, two = st.balances.length > 1;
-  const chips = st.balances.map(b => ['vacation', 'annual'].map(t =>
-    '<span class="chip">' + TYPE[t] + (two ? ' ปี ' + (b.year + 543) : '') + ' เหลือ <b>' + (b[t].total - b[t].used) + '</b>/' + b[t].total + ' วัน</span>').join('')).join('');
+  const st = A.st, chips = balanceChips(st.balances, st.today, st.max_date);
   return '<div class="top" style="padding-top:0"><div><h3>' + esc(st.me.name) + '</h3></div><button class="btn ghost sm" data-act="lock">ออก</button></div><div class="chips">' + chips + '</div>' + myListHTML();
 }
 function reqRow(r) {
@@ -311,14 +333,23 @@ function reqCheck() {
   const bal = $('#f-bal'), err = $('#f-err'), go = $('#f-go');
   if (!id) { bal.textContent = 'เลือกชื่อเพื่อดูวันลาที่เหลือ'; err.textContent = ''; go.disabled = true; return; }
   const name = (A.cal.people.find(p => p.id === id) || {}).name || '';
-  const bs = A.cal.balances[id] || [], two = bs.length > 1;
-  bal.textContent = 'วันลาของ ' + name + ': ' + bs.map(b =>
-    (two ? 'ปี ' + (b.year + 543) + ' ' : '') + 'พักร้อนเหลือ ' + (b.vacation.total - b.vacation.used) + '/' + b.vacation.total + ' · วันหยุดประจำปีเหลือ ' + (b.annual.total - b.annual.used) + '/' + b.annual.total).join(' | ');
+  const bs = A.cal.balances[id] || [], two = bs.length > 1, pers = periodsOfDates(dates);
+  const vac = bs.map(b => (two ? 'ปี ' + (b.year + 543) + ' ' : '') + 'พักร้อนเหลือ ' + (b.vacation.total - b.vacation.used) + '/' + b.vacation.total).join(' · ');
+  const ann = pers.map(o => { const a = annBal(bs, o.y, o.p); return a ? 'วันหยุดประจำปี ' + PLAB[o.p] + ' เหลือ ' + (a.total - a.used) + '/' + a.total : ''; }).filter(Boolean).join(' · ');
+  bal.textContent = 'วันลาของ ' + name + ': ' + [vac, ann].filter(Boolean).join(' | ');
   let msg = '';
-  bs.forEach(b => {
-    const need = dates.filter(d => +d.slice(0, 4) === b.year).length, rem = b[type].total - b[type].used;
-    if (need > rem) msg = 'สิทธิ์' + TYPE[type] + (two ? 'ปี ' + (b.year + 543) : '') + 'ไม่พอ (ต้องการ ' + need + ' วัน เหลือ ' + rem + ' วัน)';
-  });
+  if (type === 'vacation') {
+    bs.forEach(b => {
+      const need = dates.filter(d => +d.slice(0, 4) === b.year).length, rem = b.vacation.total - b.vacation.used;
+      if (need > rem) msg = 'สิทธิ์พักร้อน' + (two ? 'ปี ' + (b.year + 543) : '') + 'ไม่พอ (ต้องการ ' + need + ' วัน เหลือ ' + rem + ' วัน)';
+    });
+  } else {
+    pers.forEach(o => {
+      const a = annBal(bs, o.y, o.p), need = dates.filter(d => +d.slice(0, 4) === o.y && periodOf(d) === o.p).length;
+      if (!a || a.total <= 0) msg = 'ช่วง ' + PLAB[o.p] + ' ไม่มีวันหยุดประจำปีให้ใช้';
+      else if (need > a.total - a.used) msg = 'วันหยุดประจำปีช่วง ' + PLAB[o.p] + ' ไม่พอ (ต้องการ ' + need + ' วัน เหลือ ' + (a.total - a.used) + ' วัน)';
+    });
+  }
   err.textContent = msg; go.disabled = !!msg;
 }
 async function submitRequest() {
@@ -421,12 +452,14 @@ async function admCall(action, extra, reopen) {
   } catch (e) { fail(e); }
 }
 function admEmpHTML() {
-  const list = A.ad.employees.concat([{ id: '', name: '', pin: '', email: '', vacation_days: 0, annual_days: 0, active: true }]);
-  return '<p class="hint" style="margin-bottom:10px">กำหนดสิทธิ์วันลาต่อปี (นับแยกตามปีของวันที่ลา ไม่ยกยอดข้ามปี) ปิดการใช้งานพนักงานที่ออกแล้วแทนการลบ</p>' +
+  const def = A.ad.settings;
+  const list = A.ad.employees.concat([{ id: '', name: '', pin: '', email: '', vacation_days: 0, ap: ['', '', '', '', '', ''], active: true }]);
+  return '<p class="hint" style="margin-bottom:10px">วันพักร้อนเป็นยอดรายปี ส่วนวันหยุดประจำปีแบ่งเป็นช่วงละ 2 เดือน เว้นช่องว่างไว้ = ใช้ค่าเริ่มต้นของทุกคน (ตั้งที่แท็บตั้งค่า) ปิดการใช้งานพนักงานที่ออกแล้วแทนการลบ</p>' +
     list.map(e => '<div class="card ecard" data-id="' + esc(e.id) + '"><h4>' + (e.id ? esc(e.name) : 'เพิ่มพนักงานใหม่') + '</h4>' +
       '<label>ชื่อ<input name="name" value="' + esc(e.name) + '"></label><label>PIN (ตัวเลข 4–8 หลัก)<input name="pin" inputmode="numeric" value="' + esc(e.pin) + '"></label>' +
       '<label>อีเมล (แจ้งเตือนเมื่อได้คิว)<input name="email" type="email" value="' + esc(e.email) + '"></label>' +
-      '<label>วันพักร้อน/ปี<input name="vacation_days" type="number" min="0" value="' + e.vacation_days + '"></label><label>วันหยุดประจำปี/ปี<input name="annual_days" type="number" min="0" value="' + e.annual_days + '"></label>' +
+      '<label>วันพักร้อน/ปี<input name="vacation_days" type="number" min="0" value="' + e.vacation_days + '"></label>' +
+      [1, 2, 3, 4, 5, 6].map(i => '<label>วันหยุดประจำปี ' + PLAB[i] + '<input name="ap' + i + '" type="number" min="0" placeholder="' + (def['ap' + i] != null ? def['ap' + i] : 0) + '" value="' + esc(e.ap[i - 1]) + '"></label>').join('') +
       '<label class="chk"><input name="active" type="checkbox"' + (e.active ? ' checked' : '') + '> ใช้งานอยู่</label><button class="btn sm" data-act="save-emp">บันทึก</button></div>').join('');
 }
 function admReqHTML() {
@@ -445,6 +478,8 @@ function admSetHTML() {
   const s = A.ad.settings, wd = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
   return '<div class="card form"><label>ชื่อระบบ<input id="s-title" value="' + esc(s.title) + '"></label>' +
     '<div class="ecard" style="margin:0"><label>ลาล่วงหน้าขั้นต่ำ (วัน)<input id="s-min" type="number" min="0" max="60" value="' + s.min_advance_days + '"></label><label>ลาล่วงหน้าสูงสุด (เดือน)<input id="s-max" type="number" min="1" max="12" value="' + s.max_advance_months + '"></label><label>โควต้าเริ่มต้นต่อวัน (คน)<input id="s-def" type="number" min="0" max="50" value="' + s.default_quota + '"></label></div>' +
+    '<div><b>วันหยุดประจำปีต่อคน แยกตามช่วง (ค่าเริ่มต้นของทุกคน)</b><p class="hint">พนักงานใช้ได้เฉพาะวันที่อยู่ในช่วงนั้น เลือกเดือนไหนในช่วงก็ได้ วันที่เหลือเมื่อจบช่วงจะหมดไป ปรับรายคนได้ที่แท็บพนักงาน</p></div>' +
+    '<div class="ecard" style="margin:0">' + [1, 2, 3, 4, 5, 6].map(i => '<label>' + PLAB[i] + '<input id="s-ap' + i + '" type="number" min="0" max="60" value="' + (s['ap' + i] != null ? s['ap' + i] : 0) + '"></label>').join('') + '</div>' +
     '<div><b>โควต้าตามวันในสัปดาห์</b><p class="hint">เว้นว่างไว้ = ใช้โควต้าเริ่มต้น</p></div>' +
     '<div class="ecard" style="margin:0">' + wd.map((n, i) => '<label>' + n + '<input id="s-q' + i + '" type="number" min="0" max="50" value="' + esc(s['q' + i]) + '"></label>').join('') + '</div>' +
     '<label>ลิงก์หน้าเว็บนี้ (ใส่ในอีเมลแจ้งเตือน)<input id="s-url" value="' + esc(s.page_url) + '" placeholder="https://..."></label>' +
@@ -494,7 +529,9 @@ function dayClick(d) {
 }
 function readEmp(card) {
   const g = n => card.querySelector('[name=' + n + ']');
-  return { id: card.dataset.id, name: g('name').value, pin: g('pin').value, email: g('email').value, vacation_days: g('vacation_days').value, annual_days: g('annual_days').value, active: g('active').checked };
+  const o = { id: card.dataset.id, name: g('name').value, pin: g('pin').value, email: g('email').value, vacation_days: g('vacation_days').value, active: g('active').checked };
+  for (let i = 1; i <= 6; i++) o['ap' + i] = g('ap' + i).value;
+  return o;
 }
 
 document.addEventListener('click', async ev => {
@@ -546,6 +583,7 @@ document.addEventListener('click', async ev => {
     case 'save-set': {
       const s = { title: $('#s-title').value, page_url: $('#s-url').value, min_advance_days: $('#s-min').value, max_advance_months: $('#s-max').value, default_quota: $('#s-def').value, admin_pin: $('#s-pin').value };
       for (let i = 0; i < 7; i++) s['q' + i] = $('#s-q' + i).value;
+      for (let i = 1; i <= 6; i++) s['ap' + i] = $('#s-ap' + i).value;
       const res = await admCall('admin_save_settings', { settings: s });
       if (res) { if (s.admin_pin) A.adminPin = s.admin_pin; toast('บันทึกการตั้งค่าแล้ว'); }
       return;
