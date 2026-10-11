@@ -119,7 +119,7 @@ dialog::backdrop{background:rgba(10,30,36,.5)}
 <script>
 /* ==================== ตั้งค่า ==================== */
 // วาง URL ของ Web App ที่ได้จากการ Deploy ใน Apps Script ตรงนี้
-const API_URL = 'https://script.google.com/macros/s/AKfycbzZtHTp2TwaRggGHUVARBUK3bwm4W3pTmPrYUFgIljYiOPluSYPmE3061OMePcQYl_w/exec';
+const API_URL = 'PASTE_YOUR_WEB_APP_URL_HERE';
 
 /* ==================== ตัวช่วย ==================== */
 const TYPE = { vacation: 'พักร้อน', annual: 'วันหยุดประจำปี' };
@@ -133,9 +133,9 @@ const fmtShort = d => parse(d).toLocaleDateString('th-TH', { weekday: 'short', d
 const monthName = (y, m) => new Date(y, m - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
 
 let A = {
-  role: null, emp: null, pin: null, adminPin: null, mode: null,
-  st: null, ad: null, tab: 'cal', sel: new Set(), multi: false,
-  title: 'ขอวันลา', roster: [], lastEmp: null, loadedAt: 0, filter: { emp: '', month: '' }
+  role: null, adminPin: null, mode: null,
+  cal: null, st: null, sess: null, lockT: null, ad: null,
+  tab: 'cal', sel: new Set(), multi: false, loadedAt: 0, filter: { emp: '', month: '' }
 };
 
 async function post(body) {
@@ -160,8 +160,8 @@ function toast(msg, err) {
 }
 function call(action, extra) {
   const body = Object.assign({ action }, extra || {});
-  if (A.role === 'emp') { body.emp_id = A.emp.id; body.pin = A.pin; }
-  else if (A.role === 'admin') { body.admin_pin = A.adminPin; }
+  if (A.role === 'admin') body.admin_pin = A.adminPin;
+  else if (A.sess && body.emp_id === undefined) { body.emp_id = A.sess.id; body.pin = A.sess.pin; }
   return busy(post(body));
 }
 const fail = e => toast(e.message || String(e), true);
@@ -174,7 +174,7 @@ function badge(status, pos) {
   if (status === 'waitlist') return '<em class="b wait">รอคิวลำดับที่ ' + pos + '</em>';
   return '<em class="b cancel">ยกเลิกแล้ว</em>';
 }
-const dayMap = () => { const m = {}; (A.role === 'admin' ? A.ad : A.st).days.forEach(x => { m[x.d] = x; }); return m; };
+const dayMap = days => { const m = {}; days.forEach(x => { m[x.d] = x; }); return m; };
 
 /* ==================== ปฏิทิน ==================== */
 function calendarHTML(days, cellFn) {
@@ -196,14 +196,14 @@ function calendarHTML(days, cellFn) {
 }
 function cellHTML(x, cls, sub, dis, extra) {
   const sel = A.sel.has(x.d) ? ' sel' : '';
-  const today = x.d === (A.st || A.ad).today ? ' today' : '';
+  const today = x.d === (A.role === 'admin' ? A.ad : A.cal).today ? ' today' : '';
   return '<button class="cell ' + cls + sel + today + '" data-act="day" data-d="' + x.d + '"' + (dis ? ' disabled' : '') +
     ' aria-label="' + esc(fmtShort(x.d) + ' ' + (extra || sub)) + '"><b>' + (+x.d.slice(8)) + '</b><small>' + sub + '</small></button>';
 }
 function empCell(x) {
   let cls = 'free', sub = '', dis = false;
   if (x.m) { cls = x.m.status === 'confirmed' ? 'mine' : 'minewait'; sub = x.m.status === 'confirmed' ? 'ลาแล้ว' : 'คิว ' + x.m.pos; }
-  else if (x.d < A.st.min_date) { cls = 'off'; dis = true; }
+  else if (x.d < A.cal.min_date) { cls = 'off'; dis = true; }
   else if (x.h) { cls = 'holiday'; sub = 'หยุด'; dis = true; }
   else if (x.q <= 0) { cls = 'closed'; sub = 'ปิด'; dis = true; }
   else {
@@ -225,45 +225,40 @@ function admCell(x) {
   }
   return cellHTML(x, cls, sub, false);
 }
-const legendEmp = '<div class="legend"><span><i style="background:var(--ok-bg)"></i>ว่าง</span><span><i style="background:var(--near-bg)"></i>เหลือ 1 ที่</span><span><i style="background:var(--full-bg)"></i>เต็ม เข้าคิวสำรองได้</span><span><i style="background:var(--brand)"></i>ลาแล้ว</span><span><i style="background:var(--wait)"></i>รอคิว</span><span><i style="background:#E3E9E8"></i>หยุด/ปิดรับ</span></div>';
+const legendEmp = '<div class="legend"><span><i style="background:var(--ok-bg)"></i>ว่าง</span><span><i style="background:var(--near-bg)"></i>เหลือ 1 ที่</span><span><i style="background:var(--full-bg)"></i>เต็ม แต่เข้าคิวสำรองได้</span><span><i style="background:#E3E9E8"></i>วันหยุด/ปิดรับ</span></div>';
 
-/* ==================== หน้าเข้าสู่ระบบ ==================== */
-function loginView() {
+/* ==================== หน้าสาธารณะ (ไม่ต้องล็อกอิน) ==================== */
+function adminLoginView() {
+  return '<div class="wrap narrow"><h1>แอดมิน</h1><p class="sub">ใส่รหัสแอดมินเพื่อจัดการวันลา</p><div class="card form" style="margin-top:14px"><label>รหัสแอดมิน<input id="a-pin" type="password" inputmode="numeric" autocomplete="off"></label><button class="btn" data-act="admin-login">เข้าสู่ระบบแอดมิน</button></div><p class="foot"><a href="#" data-act="to-emp">กลับไปหน้าปฏิทิน</a></p></div>';
+}
+function publicView() {
   if (API_URL.startsWith('PASTE')) {
     return '<div class="wrap narrow"><div class="card form"><h2>ยังไม่ได้เชื่อมต่อระบบ</h2><p class="hint">เปิดไฟล์นี้ด้วยโปรแกรมแก้ไขข้อความ แล้วใส่ URL ของ Web App ที่ได้จากการ Deploy ไว้ที่ตัวแปร API_URL ใกล้ส่วนบนของสคริปต์</p></div></div>';
   }
-  if (A.mode === 'admin') {
-    return '<div class="wrap narrow"><h1>แอดมิน</h1><p class="sub">ใส่รหัสแอดมินเพื่อจัดการวันลา</p><div class="card form" style="margin-top:14px"><label>รหัสแอดมิน<input id="a-pin" type="password" inputmode="numeric" autocomplete="current-password"></label><button class="btn" data-act="admin-login">เข้าสู่ระบบแอดมิน</button></div><p class="foot"><a href="#" data-act="to-emp">กลับไปหน้าพนักงาน</a></p></div>';
-  }
-  if (!A.roster.length) {
-    return '<div class="wrap narrow"><div class="card"><p class="hint">ไม่พบรายชื่อพนักงาน กรุณาติดต่อแอดมิน</p></div></div>';
-  }
-  return '<div class="wrap narrow"><h1>' + esc(A.title) + '</h1><p class="sub">เลือกชื่อของคุณ แล้วใส่ PIN</p>' +
-    '<div class="card form" style="margin-top:14px"><label>ชื่อ<select id="l-emp">' +
-    A.roster.map(p => '<option value="' + esc(p.id) + '"' + (p.id === A.lastEmp ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') +
-    '</select></label><label>PIN<input id="l-pin" type="password" inputmode="numeric" autocomplete="current-password"></label>' +
-    '<label class="chk"><input type="checkbox" id="l-rem" checked> จำฉันไว้ในเครื่องนี้</label>' +
-    '<button class="btn" data-act="login">เข้าสู่ระบบ</button></div><p class="foot"><a href="#" data-act="to-admin">สำหรับแอดมิน</a></p></div>';
-}
-
-/* ==================== มุมมองพนักงาน ==================== */
-function empView() {
-  const st = A.st;
-  const two = st.balances.length > 1;
-  const chips = st.balances.map(b => ['vacation', 'annual'].map(t =>
-    '<span class="chip">' + TYPE[t] + (two ? ' ปี ' + (b.year + 543) : '') + ' เหลือ <b>' + (b[t].total - b[t].used) + '</b>/' + b[t].total + ' วัน</span>').join('')).join('');
-  const upN = st.mine.filter(r => r.status !== 'cancelled' && r.date >= st.today).length;
+  const c = A.cal;
+  if (!c) return '<div class="wrap narrow"><div class="card form"><h2>โหลดข้อมูลไม่สำเร็จ</h2><p class="hint">ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่</p><button class="btn" data-act="retry">ลองใหม่</button></div></div>';
   let body;
   if (A.tab === 'cal') {
-    body = '<p class="hint" style="margin-bottom:10px">ขอลาได้ตั้งแต่ ' + fmtShort(st.min_date) + ' ถึง ' + fmtShort(st.max_date) + ' แตะวันที่ต้องการ (เลือกได้หลายวัน) แล้วกดถัดไป</p>' +
-      legendEmp + calendarHTML(st.days, empCell);
-  } else body = myListHTML();
+    body = '<p class="hint" style="margin-bottom:10px">แตะวันที่ต้องการลา (เลือกได้หลายวัน) แล้วกด "ถัดไป" ขอได้ตั้งแต่ ' + fmtShort(c.min_date) + ' ถึง ' + fmtShort(c.max_date) + '</p>' + legendEmp + calendarHTML(c.days, empCell);
+  } else body = mineView();
   const bar = (A.tab === 'cal' && A.sel.size)
     ? '<div class="bar"><b>เลือก ' + A.sel.size + ' วัน</b><button class="btn ghost sm" data-act="clear-sel">ล้าง</button><button class="btn" data-act="next">ถัดไป</button></div>' : '';
-  return '<div class="wrap"><div class="top"><div><h2>' + esc(st.title) + '</h2><div class="sub">' + esc(st.me.name) + '</div></div><button class="btn ghost sm" data-act="logout">ออกจากระบบ</button></div>' +
-    '<div class="chips">' + chips + '</div>' +
-    '<nav class="tabs"><button data-act="tab" data-t="cal" class="' + (A.tab === 'cal' ? 'on' : '') + '">ปฏิทิน</button><button data-act="tab" data-t="list" class="' + (A.tab === 'list' ? 'on' : '') + '">คำร้องของฉัน' + (upN ? ' (' + upN + ')' : '') + '</button></nav>' +
-    body + bar + '</div>';
+  return '<div class="wrap"><div class="top"><div><h2>' + esc(c.title) + '</h2><div class="sub">ดูวันที่ว่างและขอลาได้เลย</div></div></div>' +
+    '<nav class="tabs"><button data-act="tab" data-t="cal" class="' + (A.tab === 'cal' ? 'on' : '') + '">ปฏิทิน</button><button data-act="tab" data-t="mine" class="' + (A.tab === 'mine' ? 'on' : '') + '">คำร้องของฉัน</button></nav>' +
+    body + bar + '<p class="foot"><a href="#" data-act="to-admin">สำหรับแอดมิน</a></p></div>';
+}
+function mineView() {
+  const c = A.cal;
+  if (!A.st) {
+    return '<div class="card form"><h3>ดู แก้ไข หรือยกเลิกคำร้องของฉัน</h3><p class="hint">ต้องใช้ PIN ของคุณ เพื่อกันไม่ให้ใครมายกเลิกหรือแก้คำร้องแทน</p>' +
+      '<label>ชื่อ<select id="u-emp"><option value="">— เลือกชื่อ —</option>' + c.people.map(p => '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>').join('') + '</select></label>' +
+      '<label>PIN<input id="u-pin" type="password" inputmode="numeric" autocomplete="off"></label>' +
+      '<button class="btn" data-act="unlock">เปิดดูคำร้อง</button></div>';
+  }
+  const st = A.st, two = st.balances.length > 1;
+  const chips = st.balances.map(b => ['vacation', 'annual'].map(t =>
+    '<span class="chip">' + TYPE[t] + (two ? ' ปี ' + (b.year + 543) : '') + ' เหลือ <b>' + (b[t].total - b[t].used) + '</b>/' + b[t].total + ' วัน</span>').join('')).join('');
+  return '<div class="top" style="padding-top:0"><div><h3>' + esc(st.me.name) + '</h3></div><button class="btn ghost sm" data-act="lock">ออก</button></div><div class="chips">' + chips + '</div>' + myListHTML();
 }
 function reqRow(r) {
   return '<div class="row"><div><b>' + fmtLong(r.date) + '</b><div class="sub">' + TYPE[r.type] + (r.note ? ' – ' + esc(r.note) : '') + '</div></div><div class="r">' +
@@ -280,35 +275,67 @@ function myListHTML() {
   return h;
 }
 
+/* ---- เปิด/ล็อกหน้าคำร้องของฉัน ---- */
+async function unlock() {
+  const id = $('#u-emp').value, pin = $('#u-pin').value.trim();
+  if (!id) return toast('เลือกชื่อก่อน', true);
+  A.sess = { id, pin };
+  try { A.st = await call('state'); startAutoLock(); render(); }
+  catch (e) { A.sess = null; A.st = null; fail(e); }
+}
+function lock() { A.sess = null; A.st = null; clearTimeout(A.lockT); }
+function startAutoLock() {
+  clearTimeout(A.lockT);
+  if (A.sess) A.lockT = setTimeout(() => { lock(); closeDlg(); toast('ออกจากหน้าคำร้องของฉันอัตโนมัติ'); render(); }, 180000);
+}
+
 /* ---- ขอลา ---- */
 function openRequestDialog() {
-  const dates = [...A.sel].sort(), by = dayMap();
+  const dates = [...A.sel].sort(), by = dayMap(A.cal.days);
   let anyFull = false;
   const rows = dates.map(d => {
     const x = by[d], full = x.q - x.c <= 0; if (full) anyFull = true;
     return '<li><span>' + fmtShort(d) + '</span>' + (full ? '<em class="b wait">เต็ม เข้าคิวสำรองลำดับที่ ' + (x.w + 1) + '</em>' : '<em class="b ok">ได้ที่ทันที</em>') + '</li>';
   }).join('');
-  const bal = A.st.balances.find(b => b.year === +dates[0].slice(0, 4)) || A.st.balances[0];
   openDlg('<h2>ขอลา ' + dates.length + ' วัน</h2><ul>' + rows + '</ul>' +
     (anyFull ? '<div class="warn">วันที่เต็มแล้วคุณจะอยู่ในคิวสำรอง ถ้าคนก่อนหน้ายกเลิก คุณจะได้ที่โดยอัตโนมัติ ยอดวันลาจะถูกหักไว้ตั้งแต่ตอนนี้และคืนให้เมื่อคุณยกเลิก</div>' : '') +
-    '<label>ประเภท<select id="f-type"><option value="vacation">พักร้อน (เหลือ ' + (bal.vacation.total - bal.vacation.used) + ' วัน)</option><option value="annual">วันหยุดประจำปี (เหลือ ' + (bal.annual.total - bal.annual.used) + ' วัน)</option></select></label>' +
+    '<label>คุณคือใคร<select id="f-emp"><option value="">— เลือกชื่อ —</option>' + A.cal.people.map(p => '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>').join('') + '</select></label>' +
+    '<div id="f-bal" class="hint">เลือกชื่อเพื่อดูวันลาที่เหลือ</div>' +
+    '<label>ประเภท<select id="f-type"><option value="vacation">พักร้อน</option><option value="annual">วันหยุดประจำปี</option></select></label>' +
     '<label>หมายเหตุ (ไม่บังคับ)<textarea id="f-note" rows="2" maxlength="200"></textarea></label>' +
-    '<div class="acts"><button class="btn ghost" data-act="close">กลับ</button><button class="btn" data-act="submit-req">ยืนยันขอลา</button></div>');
+    '<div id="f-err" class="errtxt"></div>' +
+    '<div class="acts"><button class="btn ghost" data-act="close">กลับ</button><button class="btn" id="f-go" data-act="submit-req" disabled>ยืนยันขอลา</button></div>');
+}
+function reqCheck() {
+  const id = $('#f-emp').value, type = $('#f-type').value, dates = [...A.sel].sort();
+  const bal = $('#f-bal'), err = $('#f-err'), go = $('#f-go');
+  if (!id) { bal.textContent = 'เลือกชื่อเพื่อดูวันลาที่เหลือ'; err.textContent = ''; go.disabled = true; return; }
+  const name = (A.cal.people.find(p => p.id === id) || {}).name || '';
+  const bs = A.cal.balances[id] || [], two = bs.length > 1;
+  bal.textContent = 'วันลาของ ' + name + ': ' + bs.map(b =>
+    (two ? 'ปี ' + (b.year + 543) + ' ' : '') + 'พักร้อนเหลือ ' + (b.vacation.total - b.vacation.used) + '/' + b.vacation.total + ' · วันหยุดประจำปีเหลือ ' + (b.annual.total - b.annual.used) + '/' + b.annual.total).join(' | ');
+  let msg = '';
+  bs.forEach(b => {
+    const need = dates.filter(d => +d.slice(0, 4) === b.year).length, rem = b[type].total - b[type].used;
+    if (need > rem) msg = 'สิทธิ์' + TYPE[type] + (two ? 'ปี ' + (b.year + 543) : '') + 'ไม่พอ (ต้องการ ' + need + ' วัน เหลือ ' + rem + ' วัน)';
+  });
+  err.textContent = msg; go.disabled = !!msg;
 }
 async function submitRequest() {
-  const dates = [...A.sel].sort(), type = $('#f-type').value, note = $('#f-note').value;
+  const emp_id = $('#f-emp').value, dates = [...A.sel].sort(), type = $('#f-type').value, note = $('#f-note').value;
+  if (!emp_id) return;
   try {
-    const res = await call('request', { dates, type, note });
-    A.st = res.state; A.sel.clear();
+    const res = await call('request', { emp_id, dates, type, note });
+    A.cal = res.state; A.sel.clear();
     const ok = res.results.filter(r => r.ok), bad = res.results.filter(r => !r.ok);
     openDlg('<h2>' + (bad.length ? 'ส่งคำร้องแล้วบางส่วน' : 'ส่งคำร้องแล้ว') + '</h2><ul>' +
       res.results.map(r => '<li><span>' + fmtShort(r.date) + '</span>' + (r.ok ? badge(r.status, r.pos) : '<span class="errtxt">' + esc(r.error) + '</span>') + '</li>').join('') +
-      '</ul>' + (ok.length ? '' : '<p class="hint">ไม่มีวันใดถูกบันทึก</p>') + '<div class="acts"><button class="btn" data-act="close">ตกลง</button></div>');
+      '</ul>' + (ok.length ? '<p class="hint">ถ้าต้องการแก้ไขหรือยกเลิก ไปที่แท็บ "คำร้องของฉัน" แล้วใส่ PIN</p>' : '<p class="hint">ไม่มีวันใดถูกบันทึก</p>') + '<div class="acts"><button class="btn" data-act="close">ตกลง</button></div>');
     render();
   } catch (e) { fail(e); }
 }
 
-/* ---- จัดการคำร้อง ---- */
+/* ---- จัดการคำร้อง (ต้องใส่ PIN แล้ว) ---- */
 function openReq(id) {
   const r = A.st.mine.find(x => x.id === id); if (!r) return;
   openDlg('<h2>' + fmtLong(r.date) + '</h2><div>' + badge(r.status, r.pos) + ' <span class="sub">' + TYPE[r.type] + '</span></div>' + (r.note ? '<p class="hint">หมายเหตุ: ' + esc(r.note) + '</p>' : '') +
@@ -328,7 +355,7 @@ function openEdit(id) {
 }
 function editCheck() {
   const date = $('#e-date').value, info = $('#e-info'), go = $('#e-go');
-  const x = dayMap()[date]; let ok = false, txt = 'เลือกวันใหม่เพื่อดูสถานะ';
+  const x = dayMap(A.st.days)[date]; let ok = false, txt = 'เลือกวันใหม่เพื่อดูสถานะ';
   if (date) {
     if (!x) txt = 'วันที่นี้อยู่นอกช่วงที่ขอได้';
     else if (x.m) txt = 'คุณมีคำร้องของวันนี้อยู่แล้ว';
@@ -344,7 +371,7 @@ function editCheck() {
 async function doEdit(id) {
   try {
     const res = await call('change', { request_id: id, new_date: $('#e-date').value });
-    A.st = res.state; closeDlg();
+    A.st = res.state; A.cal = res.cal; closeDlg(); startAutoLock();
     toast(res.result.status === 'confirmed' ? 'แก้ไขแล้ว ได้ที่ในวันใหม่' : 'แก้ไขแล้ว คุณอยู่คิวสำรองลำดับที่ ' + res.result.pos);
     render();
   } catch (e) { fail(e); }
@@ -355,7 +382,7 @@ function confirmCancel(id) {
     '<div class="acts"><button class="btn ghost" data-act="close">ไม่ยกเลิก</button><button class="btn danger" data-act="do-cancel" data-id="' + id + '">ยืนยันยกเลิก</button></div>');
 }
 async function doCancel(id) {
-  try { const res = await call('cancel', { request_id: id }); A.st = res.state; closeDlg(); toast('ยกเลิกคำร้องแล้ว'); render(); }
+  try { const res = await call('cancel', { request_id: id }); A.st = res.state; A.cal = res.cal; closeDlg(); startAutoLock(); toast('ยกเลิกคำร้องแล้ว'); render(); }
   catch (e) { fail(e); }
 }
 
@@ -436,49 +463,34 @@ function exportCSV() {
 /* ==================== เรนเดอร์ & อีเวนต์ ==================== */
 function render() {
   const y = window.scrollY;
-  $('#app').innerHTML = !A.role ? loginView() : A.role === 'emp' ? empView() : adminView();
+  $('#app').innerHTML = A.role === 'admin' ? adminView() : (A.mode === 'admin' ? adminLoginView() : publicView());
   window.scrollTo(0, y);
 }
 function logout() {
-  try { localStorage.removeItem('leave.sess'); } catch (e) { }
-  A.role = null; A.emp = null; A.pin = null; A.adminPin = null; A.st = null; A.ad = null; A.sel.clear(); A.mode = null; A.tab = 'cal'; A.multi = false;
+  A.role = null; A.adminPin = null; A.ad = null; A.sel.clear(); A.mode = null; A.tab = 'cal'; A.multi = false;
   render();
 }
-async function loadRoster() {
-  const r = await busy(post({ action: 'roster' }));
-  A.roster = r.people; A.title = r.title; document.title = r.title;
-}
-async function doLogin() {
-  const id = $('#l-emp').value, pin = $('#l-pin').value.trim(), rem = $('#l-rem').checked;
-  A.role = 'emp'; A.emp = { id }; A.pin = pin;
-  try {
-    A.st = await call('state'); A.emp = A.st.me; A.lastEmp = id; A.loadedAt = Date.now(); A.tab = 'cal';
-    try { if (rem) localStorage.setItem('leave.sess', JSON.stringify({ id, pin })); else localStorage.removeItem('leave.sess'); } catch (e) { }
-    render();
-  } catch (e) { A.role = null; A.emp = null; A.pin = null; fail(e); }
+async function loadCalendar() {
+  A.cal = await busy(post({ action: 'calendar' }));
+  A.loadedAt = Date.now(); document.title = A.cal.title;
 }
 async function doAdminLogin() {
   A.role = 'admin'; A.adminPin = $('#a-pin').value.trim();
-  try { A.ad = await call('admin_state'); A.tab = 'cal'; A.loadedAt = Date.now(); render(); }
+  try { A.ad = await call('admin_state'); A.tab = 'cal'; A.sel.clear(); A.loadedAt = Date.now(); render(); }
   catch (e) { A.role = null; A.adminPin = null; fail(e); }
 }
 async function refresh() {
   try {
-    if (A.role === 'emp') A.st = await call('state');
-    else if (A.role === 'admin') A.ad = await call('admin_state');
+    if (A.role === 'admin') A.ad = await call('admin_state');
+    else { A.cal = await call('calendar'); if (A.sess) A.st = await call('state'); }
     A.loadedAt = Date.now();
     if (!$('#dlg').open) render();
   } catch (e) { fail(e); }
 }
 function dayClick(d) {
-  if (A.role === 'emp') {
-    const x = dayMap()[d];
-    if (x && x.m) return openReq(x.m.id);
-    if (A.sel.has(d)) A.sel.delete(d); else A.sel.add(d);
-    return render();
-  }
-  if (A.multi) { if (A.sel.has(d)) A.sel.delete(d); else A.sel.add(d); return render(); }
-  openDay(d);
+  if (A.role === 'admin' && !A.multi) return openDay(d);
+  if (A.sel.has(d)) A.sel.delete(d); else A.sel.add(d);
+  render();
 }
 function readEmp(card) {
   const g = n => card.querySelector('[name=' + n + ']');
@@ -486,17 +498,20 @@ function readEmp(card) {
 }
 
 document.addEventListener('click', async ev => {
+  if (A.sess) startAutoLock();
   const el = ev.target.closest('[data-act]'); if (!el) return;
   const act = el.dataset.act, id = el.dataset.id, d = el.dataset.d;
   if (el.tagName === 'A') ev.preventDefault();
   if (act === 'filter' || act === 'multi') return; // handled in change
   switch (act) {
-    case 'login': return doLogin();
     case 'admin-login': return doAdminLogin();
     case 'to-admin': A.mode = 'admin'; return render();
     case 'to-emp': A.mode = null; return render();
     case 'logout': return logout();
-    case 'tab': A.tab = el.dataset.t; A.sel.clear(); return render();
+    case 'retry': try { await loadCalendar(); } catch (e) { fail(e); } return render();
+    case 'tab': if (A.role !== 'admin' && el.dataset.t !== 'mine') lock(); A.tab = el.dataset.t; A.sel.clear(); return render();
+    case 'unlock': return unlock();
+    case 'lock': lock(); return render();
     case 'day': return dayClick(d);
     case 'clear-sel': A.sel.clear(); return render();
     case 'next': return openRequestDialog();
@@ -520,7 +535,7 @@ document.addEventListener('click', async ev => {
       if (res) { const r = res.results[0]; toast(r.ok ? 'เพิ่มคำร้องแล้ว' : r.error, !r.ok); }
       return;
     }
-    case 'm-quota': { const dates = [...A.sel]; A.sel.clear(); return admCall('admin_set_quota', { dates, quota: $('#m-q').value });  }
+    case 'm-quota': { const dates = [...A.sel]; A.sel.clear(); return admCall('admin_set_quota', { dates, quota: $('#m-q').value }); }
     case 'm-hol': { const name = prompt('ชื่อวันหยุด', 'วันหยุด'); if (name === null) return; const dates = [...A.sel]; A.sel.clear(); const res = await admCall('admin_set_holiday', { dates, name }); if (res && res.affected) toast('มีคำร้องเดิม ' + res.affected + ' รายการในวันที่เลือก ตรวจสอบและยกเลิกเองได้ที่หน้าคำร้อง'); return; }
     case 'm-clear': { const dates = [...A.sel]; A.sel.clear(); await admCall('admin_set_quota', { dates, quota: '' }); return admCall('admin_set_holiday', { dates, remove: true }); }
     case 'save-emp': {
@@ -542,29 +557,20 @@ document.addEventListener('change', ev => {
   if (t.dataset && t.dataset.act === 'multi') { A.multi = t.checked; A.sel.clear(); render(); }
   else if (t.dataset && t.dataset.act === 'filter') { A.filter = { emp: $('#f-emp').value, month: $('#f-month').value }; render(); }
   else if (t.id === 'e-date' || t.id === 'e-ack') editCheck();
+  else if (t.id === 'f-emp' || t.id === 'f-type') reqCheck();
 });
 document.addEventListener('keydown', ev => {
   if (ev.key !== 'Enter') return;
-  if (ev.target.id === 'l-pin') doLogin();
+  if (ev.target.id === 'u-pin') unlock();
   else if (ev.target.id === 'a-pin') doAdminLogin();
 });
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && A.role && Date.now() - A.loadedAt > 30000) refresh();
+  if (!document.hidden && (A.cal || A.ad) && Date.now() - A.loadedAt > 30000) refresh();
 });
 
 /* ==================== เริ่มทำงาน ==================== */
 (async function init() {
-  if (API_URL.startsWith('PASTE')) return render();
-  try {
-    await loadRoster();
-    let sess = null;
-    try { sess = JSON.parse(localStorage.getItem('leave.sess') || 'null'); } catch (e) { }
-    if (sess) {
-      A.lastEmp = sess.id; A.role = 'emp'; A.emp = { id: sess.id }; A.pin = sess.pin;
-      try { A.st = await call('state'); A.emp = A.st.me; A.loadedAt = Date.now(); }
-      catch (e) { A.role = null; A.emp = null; A.pin = null; try { localStorage.removeItem('leave.sess'); } catch (x) { } }
-    }
-  } catch (e) { fail(e); }
+  if (!API_URL.startsWith('PASTE')) { try { await loadCalendar(); } catch (e) { fail(e); } }
   render();
 })();
 </script>
