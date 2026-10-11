@@ -119,7 +119,7 @@ dialog::backdrop{background:rgba(10,30,36,.5)}
 <script>
 /* ==================== ตั้งค่า ==================== */
 // วาง URL ของ Web App ที่ได้จากการ Deploy ใน Apps Script ตรงนี้
-const API_URL = 'https://script.google.com/macros/s/AKfycbzZtHTp2TwaRggGHUVARBUK3bwm4W3pTmPrYUFgIljYiOPluSYPmE3061OMePcQYl_w/exec';
+const API_URL = 'https://script.google.com/macros/library/d/149DyhPmM5PONZa2DEhlspUfCSboiGz-b_vt8mw2tcNlTybwewu_6nMkx/10';
 
 /* ==================== ตัวช่วย ==================== */
 const TYPE = { vacation: 'พักร้อน', annual: 'วันหยุดประจำปี' };
@@ -313,20 +313,42 @@ function startAutoLock() {
 
 /* ---- ขอลา ---- */
 function openRequestDialog() {
-  const dates = [...A.sel].sort(), by = dayMap(A.cal.days);
-  let anyFull = false;
-  const rows = dates.map(d => {
-    const x = by[d], full = x.q - x.c <= 0; if (full) anyFull = true;
-    return '<li><span>' + fmtShort(d) + '</span>' + (full ? '<em class="b wait">เต็ม เข้าคิวสำรองลำดับที่ ' + (x.w + 1) + '</em>' : '<em class="b ok">ได้ที่ทันที</em>') + '</li>';
-  }).join('');
-  openDlg('<h2>ขอลา ' + dates.length + ' วัน</h2><ul>' + rows + '</ul>' +
-    (anyFull ? '<div class="warn">วันที่เต็มแล้วคุณจะอยู่ในคิวสำรอง ถ้าคนก่อนหน้ายกเลิก คุณจะได้ที่โดยอัตโนมัติ ยอดวันลาจะถูกหักไว้ตั้งแต่ตอนนี้และคืนให้เมื่อคุณยกเลิก</div>' : '') +
+  openDlg('<h2 id="f-title"></h2><ul id="f-list"></ul><div id="f-warn"></div>' +
+    '<label>เพิ่มวัน<input type="date" id="f-add" min="' + A.cal.min_date + '" max="' + A.cal.max_date + '"></label><div id="f-adderr" class="errtxt"></div>' +
     '<label>คุณคือใคร<select id="f-emp"><option value="">— เลือกชื่อ —</option>' + A.cal.people.map(p => '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>').join('') + '</select></label>' +
     '<div id="f-bal" class="hint">เลือกชื่อเพื่อดูวันลาที่เหลือ</div>' +
     '<label>ประเภท<select id="f-type"><option value="vacation">พักร้อน</option><option value="annual">วันหยุดประจำปี</option></select></label>' +
     '<label>หมายเหตุ (ไม่บังคับ)<textarea id="f-note" rows="2" maxlength="200"></textarea></label>' +
     '<div id="f-err" class="errtxt"></div>' +
     '<div class="acts"><button class="btn ghost" data-act="close">กลับ</button><button class="btn" id="f-go" data-act="submit-req" disabled>ยืนยันขอลา</button></div>');
+  renderReqList();
+}
+// วาดรายการวันในป๊อปอัพใหม่ (ไม่แตะชื่อ/ประเภท/หมายเหตุที่กรอกไว้)
+function renderReqList() {
+  const dates = [...A.sel].sort(), by = dayMap(A.cal.days);
+  if (!dates.length) { closeDlg(); render(); return; }
+  let anyFull = false;
+  $('#f-title').textContent = 'ขอลา ' + dates.length + ' วัน';
+  $('#f-list').innerHTML = dates.map(d => {
+    const x = by[d]; if (!x) return '';
+    const full = x.q - x.c <= 0; if (full) anyFull = true;
+    return '<li><span>' + fmtShort(d) + '</span><span style="display:flex;gap:8px;align-items:center">' +
+      (full ? '<em class="b wait">เต็ม เข้าคิวสำรองลำดับที่ ' + (x.w + 1) + '</em>' : '<em class="b ok">ได้ที่ทันที</em>') +
+      '<button class="btn ghost sm" data-act="rm-day" data-d="' + d + '" aria-label="ลบวัน ' + esc(fmtShort(d)) + '">✕</button></span></li>';
+  }).join('');
+  $('#f-warn').innerHTML = anyFull ? '<div class="warn">วันที่เต็มแล้วคุณจะอยู่ในคิวสำรอง ถ้าคนก่อนหน้ายกเลิก คุณจะได้ที่โดยอัตโนมัติ ยอดวันลาจะถูกหักไว้ตั้งแต่ตอนนี้และคืนให้เมื่อคุณยกเลิก</div>' : '';
+  reqCheck();
+}
+function addDayFromInput() {
+  const inp = $('#f-add'), d = inp.value, err = $('#f-adderr'); if (!d) return;
+  const x = dayMap(A.cal.days)[d]; let msg = '';
+  if (!x) msg = 'วันที่นี้อยู่นอกช่วงที่ขอได้ (ขอได้ตั้งแต่ ' + fmtShort(A.cal.min_date) + ' ถึง ' + fmtShort(A.cal.max_date) + ')';
+  else if (d < A.cal.min_date) msg = 'ต้องขอล่วงหน้าอย่างน้อยตามที่กำหนด';
+  else if (x.h) msg = 'เป็นวันหยุด (' + x.h + ')';
+  else if (x.q <= 0) msg = 'วันนี้ปิดรับลา';
+  else if (A.sel.has(d)) msg = 'เลือกวันนี้ไว้แล้ว';
+  err.textContent = msg; inp.value = '';
+  if (!msg) { A.sel.add(d); renderReqList(); render(); }
 }
 function reqCheck() {
   const id = $('#f-emp').value, type = $('#f-type').value, dates = [...A.sel].sort();
@@ -477,7 +499,8 @@ function admReqHTML() {
 function admSetHTML() {
   const s = A.ad.settings, wd = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
   return '<div class="card form"><label>ชื่อระบบ<input id="s-title" value="' + esc(s.title) + '"></label>' +
-    '<div class="ecard" style="margin:0"><label>ลาล่วงหน้าขั้นต่ำ (วัน)<input id="s-min" type="number" min="0" max="60" value="' + s.min_advance_days + '"></label><label>ลาล่วงหน้าสูงสุด (เดือน)<input id="s-max" type="number" min="1" max="12" value="' + s.max_advance_months + '"></label><label>โควต้าเริ่มต้นต่อวัน (คน)<input id="s-def" type="number" min="0" max="50" value="' + s.default_quota + '"></label></div>' +
+    '<div class="ecard" style="margin:0"><label>ลาล่วงหน้าขั้นต่ำ (วัน)<input id="s-min" type="number" min="0" max="60" value="' + s.min_advance_days + '"></label><label>เปิดให้ขอล่วงหน้า (เดือนเต็ม)<input id="s-max" type="number" min="1" max="12" value="' + s.max_advance_months + '"></label><label>โควต้าเริ่มต้นต่อวัน (คน)<input id="s-def" type="number" min="0" max="50" value="' + s.default_quota + '"></label></div>' +
+    '<p class="hint">"เปิดให้ขอล่วงหน้า" นับเป็นเดือนเต็ม เช่น ตั้งไว้ 1 เดือน ขอได้ถึงสิ้นเดือนหน้า และเดือนใหม่จะเปิดให้ขออัตโนมัติทุกวันที่ 1</p>' +
     '<div><b>วันหยุดประจำปีต่อคน แยกตามช่วง (ค่าเริ่มต้นของทุกคน)</b><p class="hint">พนักงานใช้ได้เฉพาะวันที่อยู่ในช่วงนั้น เลือกเดือนไหนในช่วงก็ได้ วันที่เหลือเมื่อจบช่วงจะหมดไป ปรับรายคนได้ที่แท็บพนักงาน</p></div>' +
     '<div class="ecard" style="margin:0">' + [1, 2, 3, 4, 5, 6].map(i => '<label>' + PLAB[i] + '<input id="s-ap' + i + '" type="number" min="0" max="60" value="' + (s['ap' + i] != null ? s['ap' + i] : 0) + '"></label>').join('') + '</div>' +
     '<div><b>โควต้าตามวันในสัปดาห์</b><p class="hint">เว้นว่างไว้ = ใช้โควต้าเริ่มต้น</p></div>' +
@@ -554,6 +577,7 @@ document.addEventListener('click', async ev => {
     case 'next': return openRequestDialog();
     case 'close': return closeDlg();
     case 'submit-req': return submitRequest();
+    case 'rm-day': A.sel.delete(d); renderReqList(); render(); return;
     case 'open-req': return openReq(id);
     case 'edit-req': return openEdit(id);
     case 'do-edit': return doEdit(id);
@@ -596,6 +620,7 @@ document.addEventListener('change', ev => {
   else if (t.dataset && t.dataset.act === 'filter') { A.filter = { emp: $('#f-emp').value, month: $('#f-month').value }; render(); }
   else if (t.id === 'e-date' || t.id === 'e-ack') editCheck();
   else if (t.id === 'f-emp' || t.id === 'f-type') reqCheck();
+  else if (t.id === 'f-add') addDayFromInput();
 });
 document.addEventListener('keydown', ev => {
   if (ev.key !== 'Enter') return;
