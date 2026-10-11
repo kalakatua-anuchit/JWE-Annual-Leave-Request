@@ -628,7 +628,7 @@ document.addEventListener('keydown', ev => {
   else if (ev.target.id === 'a-pin') doAdminLogin();
 });
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && (A.cal || A.ad) && Date.now() - A.loadedAt > 30000) refresh();
+  if (!document.hidden && (A.cal || A.ad) && Date.now() - A.loadedAt > 600000) refresh();
 });
 
 /* ==================== เริ่มทำงาน ==================== */
