@@ -161,8 +161,43 @@ const monthName = (y, m) => new Date(y, m - 1, 1).toLocaleDateString('th-TH', { 
 let A = {
   role: null, adminPin: null, mode: null,
   cal: null, st: null, sess: null, lockT: null, ad: null,
-  tab: 'cal', sel: new Set(), multi: false, loadedAt: 0, filter: { emp: '', month: '' }
+  tab: 'cal', sel: new Set(), multi: false, loadedAt: 0, refreshPromise: null, filter: { emp: '', month: '' }
 };
+
+/* ==================== Fast Loading / Session Cache ==================== */
+const CACHE_KEY = 'leave_calendar_cache_v2';
+const CACHE_MAX_AGE = 12 * 60 * 60 * 1000; // ใช้ข้อมูลสำรองได้ไม่เกิน 12 ชั่วโมง
+const SYNC_INTERVAL = 30000; // ตรวจสอบข้อมูลใหม่ทุก 30 วินาที
+
+function readCalendarCache() {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const item = JSON.parse(raw);
+    if (!item || !item.savedAt || !item.data || !Array.isArray(item.data.days) ||
+        Date.now() - item.savedAt > CACHE_MAX_AGE) return null;
+    return item.data;
+  } catch (e) { return null; }
+}
+function saveCalendarCache(data) {
+  if (!data || !Array.isArray(data.days)) return;
+  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: data })); }
+  catch (e) { /* พื้นที่เก็บข้อมูลเต็มหรือ Browser ปิดการใช้งาน Storage: ระบบยังทำงานจากหน่วยความจำได้ */ }
+}
+function setCalendar(data) {
+  A.cal = data;
+  saveCalendarCache(data);
+  if (data && data.title) document.title = data.title;
+}
+function sameData(a, b) {
+  try { return JSON.stringify(a) === JSON.stringify(b); } catch (e) { return false; }
+}
+function silentBody(action) {
+  const body = { action: action };
+  if (A.role === 'admin') body.admin_pin = A.adminPin;
+  else if (A.sess) { body.emp_id = A.sess.id; body.pin = A.sess.pin; }
+  return body;
+}
 
 async function post(body) {
   let res;
@@ -390,7 +425,7 @@ async function submitRequest() {
   if (!emp_id) return;
   try {
     const res = await call('request', { emp_id, dates, type, note });
-    A.cal = res.state; A.sel.clear();
+    setCalendar(res.state); A.sel.clear();
     const ok = res.results.filter(r => r.ok), bad = res.results.filter(r => !r.ok);
     openDlg('<h2>' + (bad.length ? 'ส่งคำร้องแล้วบางส่วน' : 'ส่งคำร้องแล้ว') + '</h2><ul>' +
       res.results.map(r => '<li><span>' + fmtShort(r.date) + '</span>' + (r.ok ? badge(r.status, r.pos) : '<span class="errtxt">' + esc(r.error) + '</span>') + '</li>').join('') +
@@ -435,7 +470,7 @@ function editCheck() {
 async function doEdit(id) {
   try {
     const res = await call('change', { request_id: id, new_date: $('#e-date').value });
-    A.st = res.state; A.cal = res.cal; closeDlg(); startAutoLock();
+    A.st = res.state; setCalendar(res.cal); closeDlg(); startAutoLock();
     toast(res.result.status === 'confirmed' ? 'แก้ไขแล้ว ได้ที่ในวันใหม่' : 'แก้ไขแล้ว คุณอยู่คิวสำรองลำดับที่ ' + res.result.pos);
     render();
   } catch (e) { fail(e); }
@@ -446,7 +481,7 @@ function confirmCancel(id) {
     '<div class="acts"><button class="btn ghost" data-act="close">ไม่ยกเลิก</button><button class="btn danger" data-act="do-cancel" data-id="' + id + '">ยืนยันยกเลิก</button></div>');
 }
 async function doCancel(id) {
-  try { const res = await call('cancel', { request_id: id }); A.st = res.state; A.cal = res.cal; closeDlg(); startAutoLock(); toast('ยกเลิกคำร้องแล้ว'); render(); }
+  try { const res = await call('cancel', { request_id: id }); A.st = res.state; setCalendar(res.cal); closeDlg(); startAutoLock(); toast('ยกเลิกคำร้องแล้ว'); render(); }
   catch (e) { fail(e); }
 }
 
@@ -539,22 +574,49 @@ function logout() {
   A.role = null; A.adminPin = null; A.ad = null; A.sel.clear(); A.mode = null; A.tab = 'cal'; A.multi = false;
   render();
 }
-async function loadCalendar() {
-  A.cal = await busy(post({ action: 'calendar' }));
-  A.loadedAt = Date.now(); document.title = A.cal.title;
+async function loadCalendar(options) {
+  const silent = !!(options && options.silent);
+  const data = await (silent ? post({ action: 'calendar' }) : busy(post({ action: 'calendar' })));
+  setCalendar(data);
+  A.loadedAt = Date.now();
 }
 async function doAdminLogin() {
   A.role = 'admin'; A.adminPin = $('#a-pin').value.trim();
   try { A.ad = await call('admin_state'); A.tab = 'cal'; A.sel.clear(); A.loadedAt = Date.now(); render(); }
   catch (e) { A.role = null; A.adminPin = null; fail(e); }
 }
-async function refresh() {
-  try {
-    if (A.role === 'admin') A.ad = await call('admin_state');
-    else { A.cal = await call('calendar'); if (A.sess) A.st = await call('state'); }
-    A.loadedAt = Date.now();
-    if (!$('#dlg').open) render();
-  } catch (e) { fail(e); }
+// ซิงก์แบบเงียบ: ไม่แสดง Overlay และไม่วาดหน้าใหม่ถ้าข้อมูลไม่เปลี่ยน
+async function refresh(options) {
+  const silent = !!(options && options.silent);
+  if (A.refreshPromise) return A.refreshPromise;
+  if (document.hidden && silent) return;
+  A.refreshPromise = (async function () {
+    try {
+      let changed = false;
+      if (A.role === 'admin') {
+        const next = await post(silentBody('admin_state'));
+        changed = !sameData(A.ad, next);
+        if (changed) A.ad = next;
+      } else {
+        const nextCal = await post({ action: 'calendar' });
+        changed = !sameData(A.cal, nextCal);
+        if (changed) setCalendar(nextCal);
+        else saveCalendarCache(nextCal); // ต่ออายุ Cache แม้ข้อมูลยังไม่เปลี่ยน
+        if (A.sess) {
+          const nextState = await post(silentBody('state'));
+          if (!sameData(A.st, nextState)) { A.st = nextState; changed = true; }
+        }
+      }
+      A.loadedAt = Date.now();
+      if (changed && !$('#dlg').open) render();
+    } catch (e) {
+      // การซิงก์เบื้องหลังไม่ควรรบกวนผู้ใช้ด้วย Popup ทุกครั้งที่เน็ตสะดุด
+      if (!silent) fail(e);
+    } finally {
+      A.refreshPromise = null;
+    }
+  })();
+  return A.refreshPromise;
 }
 function dayClick(d) {
   if (A.role === 'admin' && !A.multi) return openDay(d);
@@ -639,12 +701,37 @@ document.addEventListener('keydown', ev => {
   else if (ev.target.id === 'a-pin') doAdminLogin();
 });
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && (A.cal || A.ad) && Date.now() - A.loadedAt > 30000) refresh();
+  if (!document.hidden && (A.cal || A.ad) && Date.now() - A.loadedAt >= SYNC_INTERVAL) {
+    refresh({ silent: true });
+  }
 });
+
+// ตรวจสอบทุก 30 วินาทีเฉพาะเมื่อหน้าเว็บมองเห็นอยู่ ไม่ยิง Request ขณะผู้ใช้สลับไปแอปอื่น
+setInterval(() => {
+  if (!document.hidden && (A.cal || A.ad) && Date.now() - A.loadedAt >= SYNC_INTERVAL) {
+    refresh({ silent: true });
+  }
+}, SYNC_INTERVAL);
 
 /* ==================== เริ่มทำงาน ==================== */
 (async function init() {
-  if (!API_URL.startsWith('PASTE')) { try { await loadCalendar(); } catch (e) { fail(e); } }
+  // แสดงข้อมูลที่เก็บไว้ทันที ไม่รอ Google Apps Script ตอบกลับ
+  const cached = readCalendarCache();
+  if (cached) {
+    setCalendar(cached);
+    A.loadedAt = 0; // บังคับให้ซิงก์ข้อมูลล่าสุดทันทีในเบื้องหลัง
+    render();
+    loadCalendar({ silent: true }).then(() => {
+      if (!sameData(cached, A.cal) && !$('#dlg').open) render();
+    }).catch(() => {
+      toast('กำลังแสดงข้อมูลที่บันทึกไว้ เนื่องจากเชื่อมต่อเซิร์ฟเวอร์ไม่ได้', true);
+    });
+    return;
+  }
+  if (!API_URL.startsWith('PASTE')) {
+    try { await loadCalendar(); }
+    catch (e) { fail(e); }
+  }
   render();
 })();
 </script>
